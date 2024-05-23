@@ -1,5 +1,5 @@
 ## Aditi M. Bhangale
-## Last updated: 21 May 2024
+## Last updated: 23 May 2024
 
 # " Comparing maximum likelihood to two-stage estimation for structural equation 
 # models of social-network data"
@@ -739,7 +739,7 @@ set_priors <- function(data, rr.vars, IDout, IDin, IDgroup, priorType, targetCor
 
 # function 7: stage1 in `lavaan.srm`----
 
-lavs1 <- s1sat <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), 
+lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), 
                            IDout = "Actor", IDin = "Partner", IDgroup = "Group", priorType,
                            targetCorr = 0.3, precision = 0.1,
                            iter = 2000, savefile = FALSE) {
@@ -749,9 +749,10 @@ lavs1 <- s1sat <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
   
   s1_env <- new.env()
   s1_env$dat <- genGroups(MCSampID = MCSampID, n = n, G = G)
-  s1_env$MCMC_pars <- c("s_rr", "S_p", "r_d2", 
-                        paste0("Rp[", combn(1:6, 2, paste0, 
-                                            collapse = ","), "]")) # save non-redundant MCMC parameter labels
+  s1_env$MCMC_pars <- c(paste0("pSigma[", outer(1:6, 1:6, FUN = paste, sep = ",")[upper.tri(diag(6), diag = TRUE)], "]"), # case level
+                                     paste0("dSigma[", c(paste0(rep(1, each = 6), ",", 1:6), # relvar1; dyadcov11; intra/inter12; intra/inter13
+                                                         paste0(rep(3, each = 4), ",", 3:6), #relvar2; dyadcov22; intra/inter23
+                                                         paste0(rep(5, each = 2), ",", 5:6)), "]")) # relvar3; dyadcov33
   t0 <- Sys.time()
   
   if (priorType == "default") { # default
@@ -767,9 +768,8 @@ lavs1 <- s1sat <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
     mcmcList <- As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env))
     mPSRF <- gelman.diag(mcmcList, autoburnin = FALSE)$mpsrf
     
-    s1long <- cbind(iter = iter, data.frame(summary(s1ests, as.stanfit = TRUE,
-                                                    probs = c(0.025, 0.975))$summary))
-    s1long <- s1long[-nrow(s1long), ]
+    s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
+                                 probs = NULL)$summary)[get("MCMC_pars", envir = s1_env),]
     
     if (any(s1long$n_eff < 100, na.rm = TRUE) | any(s1long$Rhat > 1.05, na.rm = TRUE)) {
       iter <- iter*2
@@ -780,16 +780,12 @@ lavs1 <- s1sat <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
       ## compute mPSRF
       mcmcList <- As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env))
       mPSRF <- gelman.diag(mcmcList, autoburnin = FALSE)$mpsrf
-      
-      s1long <- cbind(iter = iter, data.frame(summary(s1ests, as.stanfit = TRUE,
-                                                      probs = c(0.025, 0.975))$summary))
-      s1long <- s1long[-nrow(s1long), ]
     }
   } else if (priorType == "prophetic") { # prophetic
     rr.data <- get("dat", envir = s1_env)
     
     s1_priors <- set_priors(data = rr.data, rr.vars = rr.vars, priorType = priorType,
-                            precision = precision, smallvar = smallvar)
+                            precision = precision)
     s1ests <- mvsrm(data = rr.data, rr.vars = rr.vars, IDout = IDout, IDin = IDin,
                     IDgroup = IDgroup, fixed.groups = T, init_r = 0.5,
                     iter = iter, priors = s1_priors, seed = 1512, verbose = F)
@@ -798,9 +794,8 @@ lavs1 <- s1sat <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
     mcmcList <- As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env))
     mPSRF <- gelman.diag(mcmcList, autoburnin = FALSE)$mpsrf
     
-    s1long <- cbind(iter = iter, data.frame(summary(s1ests, as.stanfit = TRUE,
-                                                    probs = c(0.025, 0.975))$summary))
-    s1long <- s1long[-nrow(s1long), ]
+    s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
+                                 probs = NULL)$summary)[get("MCMC_pars", envir = s1_env),]
     
     if (any(s1long$n_eff < 100, na.rm = TRUE) | any(s1long$Rhat > 1.05, na.rm = TRUE)) {
       iter <- iter*2
@@ -811,17 +806,12 @@ lavs1 <- s1sat <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
       ## compute mPSRF
       mcmcList <- As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env))
       mPSRF <- gelman.diag(mcmcList, autoburnin = FALSE)$mpsrf
-      
-      s1long <- cbind(iter = iter, data.frame(summary(s1ests, as.stanfit = TRUE,
-                                                      probs = c(0.025, 0.975))$summary))
-      s1long <- s1long[-nrow(s1long), ]
     }
   } else if (priorType == "FIML") { # FIML
     rr.data <- get("dat", envir = s1_env)
     
     s1_priors <- set_priors(data = rr.data, rr.vars = rr.vars, IDout = IDout, IDin = IDin,
-                            IDgroup = IDgroup, priorType = priorType, precision = precision,
-                            multiMLE = multiMLE)
+                            IDgroup = IDgroup, priorType = priorType, precision = precision)
     s1ests <- mvsrm(data = rr.data, rr.vars = rr.vars, IDout = IDout, IDin = IDin,
                     IDgroup = IDgroup, fixed.groups = T, init_r = 0.5,
                     iter = iter, priors = s1_priors, seed = 1512, verbose = F)
@@ -830,9 +820,8 @@ lavs1 <- s1sat <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
     mcmcList <- As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env))
     mPSRF <- gelman.diag(mcmcList, autoburnin = FALSE)$mpsrf
     
-    s1long <- cbind(iter = iter, data.frame(summary(s1ests, as.stanfit = TRUE,
-                                                    probs = c(0.025, 0.975))$summary))
-    s1long <- s1long[-nrow(s1long), ]
+    s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
+                                 probs = NULL)$summary)[get("MCMC_pars", envir = s1_env),]
     
     if (any(s1long$n_eff < 100, na.rm = TRUE) | any(s1long$Rhat > 1.05, na.rm = TRUE)) {
       iter <- iter*2
@@ -843,21 +832,32 @@ lavs1 <- s1sat <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
       ## compute mPSRF
       mcmcList <- As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env))
       mPSRF <- gelman.diag(mcmcList, autoburnin = FALSE)$mpsrf
-      
-      s1long <- cbind(iter = iter, data.frame(summary(s1ests, as.stanfit = TRUE,
-                                                      probs = c(0.025, 0.975))$summary))
-      s1long <- s1long[-nrow(s1long), ]
     }
   }
   t1 <- Sys.time()
   
-  s1long$RunTime <- difftime(t1, t0, units = "mins")
+  analDetails <- c(MCSampID = as.numeric(MCSampID), condition = paste0(n, "-", G),
+                   analType = paste0("MCMC-", priorType, "-", 
+                                     ifelse(priorType == "default", "NA", precision)),
+                   iter = iter, RunTime = difftime(t1, t0, units = "mins"), mPSRF = mPSRF)
   
-  if (savefile) #TODO
+  out <- list()
   
-  return(xxx) #TODO
+  out[[paste0("ID", MCSampID, ".nG", G, ".n", n, "_", 
+              priorType, "_", ifelse(priorType == "default", "NA", precision), "_s1ests")]] <- s1ests
+  out[[paste0("ID", MCSampID, ".nG", G, ".n", n, "_", 
+              priorType,  "_", ifelse(priorType == "default", "NA", precision), "_analDetails")]] <- analDetails
+  
+  if (savefile) saveRDS(out, paste0("s1_ID", MCSampID, ".nG", G, ".n", n, "_", 
+                                    priorType,  "_", ifelse(priorType == "default", "NA", precision), ".rds")) #TODO say something about it being stage1
+  
+  return(out)
   
 }
+
+# lavs1(MCSampID = 1, n = 5, G = 3, priorType = "prophetic", precision = 0.1, iter = 100, savefile = F)
+# lavs1(MCSampID = 1, n = 5, G = 3, priorType = "FIML", precision = 0.1, iter = 100, savefile = F)
+# lavs1(MCSampID = 1, n = 5, G = 3, priorType = "default", iter = 100, savefile = F)
 
 #----
 
