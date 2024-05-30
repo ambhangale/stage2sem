@@ -815,8 +815,8 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor"
   attr(s1ests, "MCSampID") <- MCSampID
   attr(s1ests, "n") <- n
   attr(s1ests, "G") <- G
-  attr(s1ests, "analType") <- paste0("MCMC-", priorType, "-", 
-                                     ifelse(priorType == "default", "NA", precision))
+  attr(s1ests, "priorType") <- priorType
+  attr(s1ests, "precision") <- ifelse(priorType == "default", "NA", precision)
   attr(s1ests, "iter") <- iter
   attr(s1ests, "RunTime") <- difftime(t1, t0, units = "mins")
   
@@ -824,15 +824,12 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor"
                           autoburnin = FALSE)$mpsrf
   #FIXME below
   if (savefile) saveRDS(s1ests, paste0("s1_ID", MCSampID, ".nG", G, ".n", n, "_", 
-                                    priorType,  "_", ifelse(priorType == "default", "NA", precision), ".rds")) #TODO say something about it being stage1
-  
+                                    priorType,  "_", ifelse(priorType == "default", "NA", precision), ".rds"))
   return(s1ests)
   
 }
 
-# lavs1(MCSampID = 1, n = 5, G = 3, priorType = "prophetic", precision = 0.1, iter = 100, savefile = F) -> s1result
-# s1ests <- foo$ID1.nG3.n5_prophetic_0.1_s1ests
-# s1details <- foo$ID1.nG3.n5_prophetic_0.1_analDetails
+lavs1(MCSampID = 1, n = 5, G = 3, priorType = "prophetic", precision = 0.1, iter = 100, savefile = F) -> foo
 # lavs1(MCSampID = 1, n = 5, G = 3, priorType = "FIML", precision = 0.1, iter = 100, savefile = F)
 # lavs1(MCSampID = 1, n = 5, G = 3, priorType = "default", iter = 100, savefile = F)
 
