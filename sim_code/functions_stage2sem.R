@@ -823,10 +823,10 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor"
   attr(s1ests, "mPSRF") <- gelman.diag(As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env)), 
                           autoburnin = FALSE)$mpsrf
   #FIXME below
-  if (savefile) saveRDS(out, paste0("s1_ID", MCSampID, ".nG", G, ".n", n, "_", 
+  if (savefile) saveRDS(s1ests, paste0("s1_ID", MCSampID, ".nG", G, ".n", n, "_", 
                                     priorType,  "_", ifelse(priorType == "default", "NA", precision), ".rds")) #TODO say something about it being stage1
   
-  return(out)
+  return(s1ests)
   
 }
 
