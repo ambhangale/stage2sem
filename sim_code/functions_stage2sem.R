@@ -1,5 +1,5 @@
 ## Aditi M. Bhangale
-## Last updated: 23 May 2024
+## Last updated: 30 May 2024
 
 # " Comparing maximum likelihood to two-stage estimation for structural equation 
 # models of social-network data"
@@ -99,8 +99,8 @@ getSigma <- function(return_mats = TRUE){
   SIGMA_d <- LAM_d %*% PHI_d %*% t(LAM_d) + PSI_d
   
   ## pop values for satmod
-  FsatNames_c <- c("f1@A", "f2@A", "f3@A", "f1@P", "f2@P", "f3@P") # person-level satmod factor names
-  FsatNames_d <- c("f1@AP", "f1@PA", "f2@AP", "f2@PA", "f3@AP", "f3@PA") # dyad-level satmod factor names
+  FsatNames_c <- gsub("V", "f", Inames_c) # person-level satmod factor names
+  FsatNames_d <- gsub("V", "f", Inames_d) # dyad-level satmod factor names
   
   dimnames(SIGMA_c) <- list(FsatNames_c, FsatNames_c)
   dimnames(SIGMA_d) <- list(FsatNames_d, FsatNames_d)
@@ -739,10 +739,9 @@ set_priors <- function(data, rr.vars, IDout, IDin, IDgroup, priorType, targetCor
 
 # function 7: stage1 in `lavaan.srm`----
 
-lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), 
-                           IDout = "Actor", IDin = "Partner", IDgroup = "Group", priorType,
-                           targetCorr = 0.3, precision = 0.1,
-                           iter = 2000, savefile = FALSE) {
+lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor", 
+                  IDin = "Partner", IDgroup = "Group", priorType, 
+                  precision = 0.1, iter = 2000, savefile = FALSE) {
   library(lavaan.srm)
   library(coda) # for gelman.diag()
   library(rstan) # for As.mcmc.list()
@@ -764,10 +763,6 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
                     IDgroup = IDgroup, fixed.groups = T, init_r = 0.5,
                     iter = iter, priors = s1_priors, seed = 1512, verbose = F)
     
-    ## compute mPSRF
-    mcmcList <- As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env))
-    mPSRF <- gelman.diag(mcmcList, autoburnin = FALSE)$mpsrf
-    
     s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
                                  probs = NULL)$summary)[get("MCMC_pars", envir = s1_env),]
     
@@ -776,10 +771,6 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
       s1ests <- mvsrm(data = rr.data, rr.vars = rr.vars, IDout = IDout, IDin = IDin,
                       IDgroup = IDgroup, fixed.groups = T, init_r = 0.5,
                       iter = iter, priors = s1_priors, seed = 1512, verbose = F)
-      
-      ## compute mPSRF
-      mcmcList <- As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env))
-      mPSRF <- gelman.diag(mcmcList, autoburnin = FALSE)$mpsrf
     }
   } else if (priorType == "prophetic") { # prophetic
     rr.data <- get("dat", envir = s1_env)
@@ -790,10 +781,6 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
                     IDgroup = IDgroup, fixed.groups = T, init_r = 0.5,
                     iter = iter, priors = s1_priors, seed = 1512, verbose = F)
     
-    ## compute mPSRF
-    mcmcList <- As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env))
-    mPSRF <- gelman.diag(mcmcList, autoburnin = FALSE)$mpsrf
-    
     s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
                                  probs = NULL)$summary)[get("MCMC_pars", envir = s1_env),]
     
@@ -802,10 +789,6 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
       s1ests <- mvsrm(data = rr.data, rr.vars = rr.vars, IDout = IDout, IDin = IDin,
                       IDgroup = IDgroup, fixed.groups = T, init_r = 0.5,
                       iter = iter, priors = s1_priors, seed = 1512, verbose = F)
-      
-      ## compute mPSRF
-      mcmcList <- As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env))
-      mPSRF <- gelman.diag(mcmcList, autoburnin = FALSE)$mpsrf
     }
   } else if (priorType == "FIML") { # FIML
     rr.data <- get("dat", envir = s1_env)
@@ -816,11 +799,7 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
                     IDgroup = IDgroup, fixed.groups = T, init_r = 0.5,
                     iter = iter, priors = s1_priors, seed = 1512, verbose = F)
     
-    ## compute mPSRF
-    mcmcList <- As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env))
-    mPSRF <- gelman.diag(mcmcList, autoburnin = FALSE)$mpsrf
-    
-    s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
+   s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
                                  probs = NULL)$summary)[get("MCMC_pars", envir = s1_env),]
     
     if (any(s1long$n_eff < 100, na.rm = TRUE) | any(s1long$Rhat > 1.05, na.rm = TRUE)) {
@@ -828,26 +807,22 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
       s1ests <- mvsrm(data = rr.data, rr.vars = rr.vars, IDout = IDout, IDin = IDin,
                       IDgroup = IDgroup, fixed.groups = T, init_r = 0.5,
                       iter = iter, priors = s1_priors, seed = 1512, verbose = F)
-      
-      ## compute mPSRF
-      mcmcList <- As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env))
-      mPSRF <- gelman.diag(mcmcList, autoburnin = FALSE)$mpsrf
     }
   }
   t1 <- Sys.time()
   
-  analDetails <- c(MCSampID = as.numeric(MCSampID), condition = paste0(n, "-", G),
-                   analType = paste0("MCMC-", priorType, "-", 
-                                     ifelse(priorType == "default", "NA", precision)),
-                   iter = iter, RunTime = difftime(t1, t0, units = "mins"), mPSRF = mPSRF)
+  # assign simulation conditions as attributes to s1ests to use for stage2
+  attr(s1ests, "MCSampID") <- MCSampID
+  attr(s1ests, "n") <- n
+  attr(s1ests, "G") <- G
+  attr(s1ests, "analType") <- paste0("MCMC-", priorType, "-", 
+                                     ifelse(priorType == "default", "NA", precision))
+  attr(s1ests, "iter") <- iter
+  attr(s1ests, "RunTime") <- difftime(t1, t0, units = "mins")
   
-  out <- list()
-  
-  out[[paste0("ID", MCSampID, ".nG", G, ".n", n, "_", 
-              priorType, "_", ifelse(priorType == "default", "NA", precision), "_s1ests")]] <- s1ests
-  out[[paste0("ID", MCSampID, ".nG", G, ".n", n, "_", 
-              priorType,  "_", ifelse(priorType == "default", "NA", precision), "_analDetails")]] <- analDetails
-  
+  attr(s1ests, "mPSRF") <- gelman.diag(As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env)), 
+                          autoburnin = FALSE)$mpsrf
+  #FIXME below
   if (savefile) saveRDS(out, paste0("s1_ID", MCSampID, ".nG", G, ".n", n, "_", 
                                     priorType,  "_", ifelse(priorType == "default", "NA", precision), ".rds")) #TODO say something about it being stage1
   
@@ -855,7 +830,9 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
   
 }
 
-# lavs1(MCSampID = 1, n = 5, G = 3, priorType = "prophetic", precision = 0.1, iter = 100, savefile = F)
+# lavs1(MCSampID = 1, n = 5, G = 3, priorType = "prophetic", precision = 0.1, iter = 100, savefile = F) -> s1result
+# s1ests <- foo$ID1.nG3.n5_prophetic_0.1_s1ests
+# s1details <- foo$ID1.nG3.n5_prophetic_0.1_analDetails
 # lavs1(MCSampID = 1, n = 5, G = 3, priorType = "FIML", precision = 0.1, iter = 100, savefile = F)
 # lavs1(MCSampID = 1, n = 5, G = 3, priorType = "default", iter = 100, savefile = F)
 
@@ -863,13 +840,124 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"),
 
 # function 8: stage2 SR_SEM in lavaan.srm----
 
-
+lavs2 <- function(MCSampID, n, G, priorType, precision, s1result) {
+  library(lavaan.srm)
+  
+  s1ests <- s1result[[paste0("ID", MCSampID, ".nG", G, ".n", n, "_", 
+                             priorType, "_", ifelse(priorType == "default", "NA", precision), "_s1ests")]]
+  s1details <- s1result[[paste0("ID", MCSampID, ".nG", G, ".n", n, "_", 
+                                priorType, "_", ifelse(priorType == "default", "NA", precision), "_analDetails")]]
+  
+  # stage2
+  mod <- ' group: 1
+  Factor_out =~ 1*V1_out + V2_out + V3_out
+  Factor_in =~ 1*V1_in + V2_in + V3_in
+  
+  Factor_out ~~ Factor_out + Factor_in
+  Factor_in ~~ Factor_in
+  
+  V1_out ~~ V1_out + V1_in
+  V1_in ~~ V1_in
+  V2_out ~~ V2_out
+  V2_in ~~ V2_in
+  V3_out ~~ V3_out + V3_in
+  V3_in ~~ V3_in
+  
+  group: 2
+  Factor_ij =~ 1*V1_ij + FL2*V2_ij + FL3*V3_ij
+  Factor_ji =~ 1*V1_ji + FL2*V2_ji + FL3*V3_ji
+  
+  Factor_ij ~~ Fcov*Factor_ij + Factor_ji
+  Factor_ji ~~ Fcov*Factor_ji
+  
+  V1_ij ~~ Ivar1*V1_ij
+  V1_ji ~~ Ivar1*V1_ji
+  V2_ij ~~ Ivar2*V2_ij + V2_ji
+  V2_ji ~~ Ivar2*V2_ji
+  V3_ij ~~ Ivar3*V3_ij + V3_ji
+  V3_ji ~~ Ivar3*V3_ji
+  '
+  
+  fit <- lavaan.srm(model = mod, data = s1ests, component = c("case", "dyad"), posterior.est = "mean")
+  
+  # fit@test$browne.residual.adf$stat # overall test statistic?
+  # fit@test$browne.residual.adf$stat.group # level-specific test statistic?
+  
+  #TODO save overall fit measure (chi-sq)
+  
+} #TODO figure out how to cbind() MCSampID, n, G, analType, etc to the result
 
 #----
 
 # function 9: FIML for SR-SEM effects in`srm`----
 
-
+ogsrm <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor", 
+                  IDin = "Partner", IDgroup = "Group", savefile = F) {
+  library(srm)
+  
+  rr.data <- genGroups(MCSampID = MCSampID, n = n, G = G, rr.vars = rr.vars)
+  
+  # model
+  mod_srm <- '
+  %Person 
+  Factor@A =~ 1*V1@A + V2@A + V3@A
+  Factor@P =~ 1*V1@P + V2@P + V3@P
+  
+  Factor@A ~~ Factor@A + Factor@P
+  Factor@P ~~ Factor@P
+  
+  V1@A ~~ V1@A + V1@P + 0*V2@A + 0*V2@P + 0*V3@A + 0*V3@P
+  V1@P ~~ V1@P + 0*V2@A + 0*V2@P + 0*V3@A + 0*V3@P
+  V2@A ~~ V2@A + V2@P + 0*V3@A + 0*V3@P
+  V2@P ~~ V2@P + 0*V3@A + 0*V3@P
+  V3@A ~~ V3@A + V3@P
+  V3@P ~~ V3@P
+  
+  %Dyad 
+  Factor@AP =~ 1*V1@AP + FL2*V2@AP + FL3*V3@AP
+  Factor@PA =~ 1*V1@PA + FL2*V2@PA + FL3*V3@PA
+  
+  Factor@AP ~~ Fvar*Factor@AP + Factor@PA
+  Factor@PA ~~ Fvar*Factor@PA
+  
+  V1@AP ~~ Ind1var*V1@AP + 0*V1@PA + 0*V2@AP + 0*V2@PA + 0*V3@AP + 0*V3@PA
+  V1@PA ~~ Ind1var*V1@PA + 0*V2@AP + 0*V2@PA + 0*V3@AP + 0*V3@PA
+  V2@AP ~~ Ind2var*V2@AP + V2@PA + 0*V3@AP + 0*V3@PA
+  V2@PA ~~ Ind2var*V2@PA + 0*V3@AP + 0*V3@PA
+  V3@AP ~~ Ind3var*V3@AP + V3@PA
+  V3@PA ~~ Ind3var*V3@PA
+  ' #TODO check the model code --- equality constraints, constraints to 0 and 1---are they all correct?
+  
+  fit_srm <- srm(mod_srm, rr.data, 
+                 person_names = c(IDout, IDin), 
+                 rrgroup_name = IDgroup, verbose = FALSE)
+  
+  if (!fit_srm$res_opt$converged) return(NULL)
+  
+  srm.parm <- fit_srm$parm.table
+  
+  popVals <- rbind(getSigma(return_mats = F)$popVals_c, getSigma(return_mats = F)$popVals_d)
+  
+  results_srm <- merge(srm.parm, popVals, by = "par_names")
+  results_srm$level <- gsub("U", "case", gsub("D", "dyad", results_srm$level))
+  results_srm <- results_srm[, c("par_names", "pop", "level", "est", "se")]
+  
+  # coverage
+  results_srm$ci.lower <- results_srm$est - 1.96*results_srm$se
+  results_srm$ci.upper <- results_srm$est + 1.96*results_srm$se
+  results_srm$coverage <- results_srm$ci.lower < results_srm$pop & results_srm$pop < results_srm$ci.upper
+  
+  results_srm$bias <- results_srm$est - results_srm$pop
+  results_srm$RB <- results_srm$bias / results_srm$pop
+  
+  results_srm <- cbind(MCSampID, n, G, priorType = "ogsrm", precision = "NA", 
+                       iter = "NA", results_srm)
+  
+  if (savefile) saveRDS(results_srm, file = paste0("ID", MCSampID, ".nG", G, ".n", 
+                                                   n, "-srmML-og-og", ".rds"))
+  
+  return(results_srm)
+}
 
 #----
 
