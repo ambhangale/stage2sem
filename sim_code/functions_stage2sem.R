@@ -1,7 +1,7 @@
 ## Aditi M. Bhangale
-## Last updated: 30 May 2024
+## Last updated: 3 June 2024
 
-# " Comparing maximum likelihood to two-stage estimation for structural equation 
+# "Comparing maximum likelihood to two-stage estimation for structural equation 
 # models of social-network data"
 ## Using Nestler et al., 2020 population values
 
@@ -12,8 +12,6 @@
 
 ## README: only run stage1 for software-default, prophetic, and EB-FIML priors
 ## (based on our findings from the stage1paper)
-
-#TODO do we even want to run the n = 6 conditions for this paper? we already know they'll do poorly
 
 # MCSampID = 1; n = 5; G = 3
 # rr.data <- genGroups(MCSampID = 1, n = 5, G = 3)
@@ -29,15 +27,13 @@
 
 # function 0: generate level-specific (co)variance matrices----
 
-getSigma <- function(return_mats = TRUE){
+getSigma <- function(return_mats = TRUE) {
+  # case-level effects
+  Inames_c <- c("V1@A", "V2@A", "V3@A", "V1@P", "V2@P", "V3@P") # case-level indicator names
+  Fnames_c <- c("Factor@A", "Factor@P") # case-level factor names
   
-  ## person effects
-  
-  Inames_c <- c("V1@A", "V2@A", "V3@A", "V1@P", "V2@P", "V3@P") # person-level indicator names
-  Fnames_c <- c("f1@A", "f1@P") # person-level factor names
-  
-  # person-level lambda
-  LAM_c <- matrix(0, 6, 2)
+  # case-level lambda
+  LAM_c <- matrix(0,6,2)
   LAM_c[1,1] <- 1
   LAM_c[2,1] <- 1.2
   LAM_c[3,1] <- 0.7
@@ -47,20 +43,16 @@ getSigma <- function(return_mats = TRUE){
   
   dimnames(LAM_c) <- list(Inames_c, Fnames_c)
   
-  # person-level factor cov matrix
+  # case-level factor cov matrix
   PHI_c <- matrix(c(0.40, 0.05, 0.05, 0.20), 2, 2)
   
   dimnames(PHI_c) <- list(Fnames_c, Fnames_c)
   
-  # person-level indicator residual cov matrix
+  # case-level indicator residual cov matrix
   PSI_c <- diag(6)
-  PSI_c[1,1] <- 0.2
-  PSI_c[2,2] <- 0.2
-  PSI_c[3,3] <- 0.2
-  PSI_c[4,4] <- 0.1
+  PSI_c[1,1] <- PSI_c[2,2] <- PSI_c[3,3] <- 0.2
+  PSI_c[4,4] <- PSI_c[5,5] <- PSI_c[6,6] <- 0.1
   PSI_c[1,4] <- PSI_c[4,1] <- 0.05
-  PSI_c[5,5] <- 0.1
-  PSI_c[6,6] <- 0.1
   PSI_c[3,6] <- PSI_c[6,3] <- 0.03
   
   dimnames(PSI_c) <- list(Inames_c, Inames_c)
@@ -68,10 +60,10 @@ getSigma <- function(return_mats = TRUE){
   ## structure dyad effects
   
   Inames_d <- c("V1@AP", "V1@PA", "V2@AP", "V2@PA", "V3@AP", "V3@PA") # dyad-level indicator names
-  Fnames_d <- c("f1@AP", "f1@PA") # dyad-level factor names
+  Fnames_d <- c("Factor@AP", "Factor@PA") # dyad-level factor names
   
   # dyad-level lambda
-  LAM_d <- matrix(0, 6, 2)
+  LAM_d <- matrix(0,6,2)
   LAM_d[1,1] <- LAM_d[2,2] <- 1
   LAM_d[3,1] <- LAM_d[4,2] <- 0.8
   LAM_d[5,1] <- LAM_d[6,2] <- 1.4
@@ -93,19 +85,12 @@ getSigma <- function(return_mats = TRUE){
   
   dimnames(PSI_d) <- list(Inames_d, Inames_d)
   
-  # person-level sigma
+  # case-level sigma
   SIGMA_c <- LAM_c %*% PHI_c %*% t(LAM_c) + PSI_c
   # dyad-level sigma
   SIGMA_d <- LAM_d %*% PHI_d %*% t(LAM_d) + PSI_d
   
-  ## pop values for satmod
-  FsatNames_c <- gsub("V", "f", Inames_c) # person-level satmod factor names
-  FsatNames_d <- gsub("V", "f", Inames_d) # dyad-level satmod factor names
-  
-  dimnames(SIGMA_c) <- list(FsatNames_c, FsatNames_c)
-  dimnames(SIGMA_d) <- list(FsatNames_d, FsatNames_d)
-  
-  # person-level corr matrix
+  # case-level corr matrix
   R_c <- cov2cor(SIGMA_c)
   # dyad-level corr matrix
   R_d <- cov2cor(SIGMA_d)
@@ -116,56 +101,39 @@ getSigma <- function(return_mats = TRUE){
   
   if (return_mats)  return(mat_list)
   
-  # creating a dataframe of person-level population values
-  pop_c.cov <- as.data.frame(as.table(SIGMA_c))
-  colnames(pop_c.cov) <- c("row", "col", "pop.cov")
-  pop_c.cov$par_names <- paste0(pop_c.cov$row, "~~", pop_c.cov$col)
-  pop_c.cov <- pop_c.cov[, c("par_names", "pop.cov")]
+  # creating a dataframe of case-level population values
+  popLAM_c <- as.data.frame(as.table(LAM_c))
+  colnames(popLAM_c) <- c("Ind", "Factor", "pop")
+  popLAM_c$par_names <- paste0(popLAM_c$Factor, "=~", popLAM_c$Ind)
+  popLAM_c <- popLAM_c[, c("par_names", "pop")]
   
-  # person-level SDs
-  mat_c.SD <- diag(sqrt(diag(SIGMA_c)))
-  dimnames(mat_c.SD) <- list(FsatNames_c, FsatNames_c)
-  pop_c.SD <- as.data.frame(as.table(mat_c.SD))
-  pop_c.SD <- pop_c.SD[pop_c.SD$Freq != 0, ]
-  colnames(pop_c.SD) <- c("row", "col", "pop.SD")
-  pop_c.SD$par_names <- paste0(pop_c.SD$row, "~~", pop_c.SD$col)
-  pop_c.SD <- pop_c.SD[, c("par_names", "pop.SD")]
-  rownames(pop_c.SD) <- NULL
+  popPHI_c <- as.data.frame(as.table(PHI_c))
+  colnames(popPHI_c) <- c("Factor1", "Factor2", "pop")
+  popPHI_c$par_names <- paste0(popPHI_c$Factor1, "~~", popPHI_c$Factor2)
+  popPHI_c <- popPHI_c[, c("par_names", "pop")]
   
-  # person-level correlations
-  # mat_c.cor <- solve(mat_c.SD) %*% SIGMA_c %*% solve(mat_c.SD) # use R_c instead
-  pop_c.cor <- as.data.frame(as.table(R_c))
-  colnames(pop_c.cor) <- c("row", "col", "pop.cor")
-  pop_c.cor$par_names <- paste0(pop_c.cor$row, "~~", pop_c.cor$col)
-  pop_c.cor <- pop_c.cor[, c("par_names", "pop.cor")]
+  popPSI_c <- as.data.frame(as.table(PSI_c))
+  colnames(popPSI_c) <- c("Factor1", "Factor2", "pop")
+  popPSI_c$par_names <- paste0(popPSI_c$Factor1, "~~", popPSI_c$Factor2)
+  popPSI_c <- popPSI_c[, c("par_names", "pop")]
   
   # creating a dataframe of dyad-level population values
-  pop_d.cov <- as.data.frame(as.table(SIGMA_d))
-  colnames(pop_d.cov) <- c("row", "col", "pop.cov")
-  pop_d.cov$par_names <-  paste0(pop_d.cov$row, "~~", pop_d.cov$col)
-  pop_d.cov <- pop_d.cov[, c("par_names", "pop.cov")]
+  popLAM_d <- as.data.frame(as.table(LAM_d))
+  colnames(popLAM_d) <- c("Ind", "Factor", "pop")
+  popLAM_d$par_names <- paste0(popLAM_d$Factor, "=~", popLAM_d$Ind)
+  popLAM_d <- popLAM_d[, c("par_names", "pop")]
   
-  # dyad-level SDs
-  mat_d.SD <- diag(sqrt(diag(SIGMA_d)))
-  dimnames(mat_d.SD) <- list(FsatNames_d, FsatNames_d)
-  pop_d.SD <- as.data.frame(as.table(mat_d.SD))
-  pop_d.SD <- pop_d.SD[pop_d.SD$Freq != 0, ]
-  pop_d.SD <- pop_d.SD[!duplicated(pop_d.SD$Freq), ]
-  colnames(pop_d.SD) <- c("row", "col", "pop.SD")
-  pop_d.SD$par_names <- paste0(pop_d.SD$row, "~~", pop_d.SD$col)
-  pop_d.SD <- pop_d.SD[, c("par_names", "pop.SD")]
-  rownames(pop_d.SD) <- NULL
+  popPHI_d <- as.data.frame(as.table(PHI_d))
+  colnames(popPHI_d) <- c("Factor1", "Factor2", "pop")
+  popPHI_d$par_names <- paste0(popPHI_d$Factor1, "~~", popPHI_d$Factor2)
+  popPHI_d <- popPHI_d[, c("par_names", "pop")]
   
-  # dyad-level correlations
-  # mat_d.cor <- solve(mat_d.SD) %*% SIGMA_d %*% solve(mat_d.SD) # use R_d instead
-  pop_d.cor <- as.data.frame(as.table(R_d))
-  colnames(pop_d.cor) <- c("row", "col", "pop.cor")
-  pop_d.cor$par_names <- paste0(pop_d.cor$row, "~~", pop_d.cor$col)
-  pop_d.cor <- pop_d.cor[, c("par_names", "pop.cor")]
+  popPSI_d <- as.data.frame(as.table(PSI_d))
+  colnames(popPSI_d) <- c("Factor1", "Factor2", "pop")
+  popPSI_d$par_names <- paste0(popPSI_d$Factor1, "~~", popPSI_d$Factor2)
+  popPSI_d <- popPSI_d[, c("par_names", "pop")]
   
-  return(list(pop.cov = rbind(pop_c.cov, pop_d.cov),
-              pop.cor = rbind(pop_c.cor, pop_d.cor),
-              pop.SD = rbind(pop_c.SD, pop_d.SD)))
+  return(rbind(popLAM_c, popPHI_c, popPSI_c, popLAM_d, popPHI_d, popPSI_d))
 }
 
 # getSigma()
@@ -333,8 +301,8 @@ prophetic_priors <- function(pop_corMat, pop_SDvec, precision, default_prior) {
   # for correlations --- beta priors
   ## begin: case-level hyperpars----
   popCorr_c <- pop_corMat$popCorr_c
-  Fnames_c <- c("f1@A", "f1@P", "f2@A", "f2@P", "f3@A", "f3@P") # reorder names
-  popCorr_c <- popCorr_c[Fnames_c, Fnames_c]
+  Inames_c <- c("V1@A", "V1@P", "V2@A", "V2@P", "V3@A", "V3@P") # reorder names
+  popCorr_c <- popCorr_c[Inames_c, Inames_c]
   
   # save  population correlation values
   targetVals_c <- list(gen1 = popCorr_c[2,1], ee21 = popCorr_c[3,1], 
@@ -410,6 +378,11 @@ prophetic_priors <- function(pop_corMat, pop_SDvec, precision, default_prior) {
   
   return(priors)
 }
+
+# foo <- getSigma()
+# prophetic_priors(pop_corMat = list(popCorr_c = foo$SIGMA_c, popCorr_d = foo$SIGMA_d),
+#                  pop_SDvec = list(popSD_c = sqrt(diag(foo$SIGMA_c)), popSD_d = sqrt(diag(foo$SIGMA_d))),
+#                  precision = 0.1, default_prior = srm_priors(data = rr.data[rr.vars]))
 
 #----
 
@@ -706,6 +679,10 @@ FIML_priors <- function(data, rr.vars, IDout, IDin, IDgroup, precision = NULL,
   priors
 }
 
+# FIML_priors(data = rr.data, rr.vars = c("V1", "V2", "V3"), IDout = "Actor",
+#              IDin = "Partner", IDgroup = "Group", precision = 0.1,
+#              default_prior = lavaan.srm::srm_priors(data = rr.data[c("V1", "V2", "V3")]))
+
 #----
 
 # function 6: set customised priors for MCMC stage----
@@ -734,6 +711,12 @@ set_priors <- function(data, rr.vars, IDout, IDin, IDgroup, priorType, targetCor
   }
   return(srmPriors)
 }
+
+# set_priors(data = rr.data, rr.vars = c("V1", "V2", "V3"), priorType = "default")
+# set_priors(data = rr.data, rr.vars = c("V1", "V2", "V3"), priorType = "prophetic",
+#            precision = 0.1)
+# set_priors(data = rr.data, rr.vars = c("V1", "V2", "V3"), priorType = "FIML",
+#            IDout = "Actor", IDin = "Partner", IDgroup = "Group", precision = 0.1)
 
 #----
 
@@ -829,21 +812,24 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor"
   
 }
 
-lavs1(MCSampID = 1, n = 5, G = 3, priorType = "prophetic", precision = 0.1, iter = 100, savefile = F) -> foo
+# lavs1(MCSampID = 1, n = 5, G = 3, priorType = "prophetic", precision = 0.1, iter = 100, savefile = F) -> s1ests
 # lavs1(MCSampID = 1, n = 5, G = 3, priorType = "FIML", precision = 0.1, iter = 100, savefile = F)
 # lavs1(MCSampID = 1, n = 5, G = 3, priorType = "default", iter = 100, savefile = F)
 
+# ----
+
+# function 8: function to flag outliers in lavs1 output----
+#TODO
 #----
 
-# function 8: stage2 SR_SEM in lavaan.srm----
+# function 9: stage2 SR_SEM in lavaan.srm----
 
-lavs2 <- function(MCSampID, n, G, priorType, precision, s1result) {
+#TODO figure out how to cbind() MCSampID, n, G, analType, etc to the result
+
+### THE MODEL IS CORRECT, THIS IS JUST HOW NESTLER ET AL., FIT IT
+
+lavs2 <- function(s1ests) {
   library(lavaan.srm)
-  
-  s1ests <- s1result[[paste0("ID", MCSampID, ".nG", G, ".n", n, "_", 
-                             priorType, "_", ifelse(priorType == "default", "NA", precision), "_s1ests")]]
-  s1details <- s1result[[paste0("ID", MCSampID, ".nG", G, ".n", n, "_", 
-                                priorType, "_", ifelse(priorType == "default", "NA", precision), "_analDetails")]]
   
   # stage2
   mod <- ' group: 1
@@ -864,8 +850,8 @@ lavs2 <- function(MCSampID, n, G, priorType, precision, s1result) {
   Factor_ij =~ 1*V1_ij + FL2*V2_ij + FL3*V3_ij
   Factor_ji =~ 1*V1_ji + FL2*V2_ji + FL3*V3_ji
   
-  Factor_ij ~~ Fcov*Factor_ij + Factor_ji
-  Factor_ji ~~ Fcov*Factor_ji
+  Factor_ij ~~ Fvar*Factor_ij + Factor_ji
+  Factor_ji ~~ Fvar*Factor_ji
   
   V1_ij ~~ Ivar1*V1_ij
   V1_ji ~~ Ivar1*V1_ji
@@ -877,16 +863,64 @@ lavs2 <- function(MCSampID, n, G, priorType, precision, s1result) {
   
   fit <- lavaan.srm(model = mod, data = s1ests, component = c("case", "dyad"), posterior.est = "mean")
   
+  if(lavInspect(fit, "converged")) {
+    s2ests <- parameterEstimates(fit)
+    s2ests$lhs <- gsub("_out", "@A", gsub("_in", "@P", gsub("_ij", "@AP", gsub("_ji", "@PA", s2ests$lhs))))
+    s2ests$rhs <- gsub("_out", "@A", gsub("_in", "@P", gsub("_ij", "@AP", gsub("_ji", "@PA", s2ests$rhs))))
+    s2ests$par_names <- paste0(s2ests$lhs, s2ests$op, s2ests$rhs)
+    # remove factor loadings constrained for identification and redundant rows
+    s2ests <- s2ests[!(s2ests$par_names %in% c("Factor@A=~V1@A", "Factor@P=~V1@P", 
+                                               "Factor@AP=~V1@AP", "Factor@PA=~V1@PA",
+                                               "Factor@PA=~V2@PA", "Factor@PA=~V3@PA",
+                                               "Factor@PA~~Factor@PA", "V1@PA~~V1@PA",
+                                               "V2@PA~~V2@PA", "V3@PA~~V3@PA")), ]
+    popVals <- getSigma(return_mats = F)
+    s2ests <- merge(s2ests, popVals, by = "par_names")
+    s2ests$group <- ifelse(s2ests$group == 1, "case", "dyad")
+    s2ests$MCSampID <- attr(s1ests, "MCSampID")
+    s2ests$n <- attr(s1ests, "n"); s2ests$G <- attr(s1ests, "G")
+    s2ests$condition <- paste0(attr(s1ests, "n"), "-", attr(s1ests, "G"))
+    s2ests$analType <- "2SMLE"
+    s2ests$s1priorType <- paste0("MCMC-", attr(s1ests, "priorType"), "-", attr(s1ests, "precision"))
+    s2ests$s1iter <- attr(s1ests, "iter")
+    s2ests$s1mPSRF <- attr(s1ests, "mPSRF")
+    s2ests$coverage <- s2ests$ci.lower < s2ests$pop & s2ests$pop < s2ests$ci.upper
+    
+    s2ests <- s2ests[, c("MCSampID", "n", "G", "condition", "analType", "s1priorType", 
+                            "s1iter", "s1mPSRF", "par_names", "group", 
+                            "pop", "est", "se", "ci.lower", "ci.upper", "coverage")] # remove non-redundant rows and reorder
+  
+    s2mod <- c(MCSampID = attr(s1ests, "MCSampID"), n = attr(s1ests, "n"),
+               G = attr(s1ests, "G"), 
+               condition = paste0(attr(s1ests, "n"), "-", attr(s1ests, "G")), 
+               analType = "2SMLE", 
+               s1priorType  = paste0("MCMC-", attr(s1ests, "priorType"), "-", attr(s1ests, "precision")), 
+               s1iter = attr(s1ests, "iter"), s1mPSRF = attr(s1ests, "mPSRF"),
+               )
+    
+    # whole model--- chi-sq, df, p-value; group models---chi-sq only
+    
+    #TODO save model fit statistics---case level, dyad level, and the complete model
+    ## should i do this in the same dataframe or should i do this 
+    
+  } else {
+    s2result <- NULL
+  }
+  
+  #TODO saveRDS and if result is NULL, then what?
+  
   # fit@test$browne.residual.adf$stat # overall test statistic?
   # fit@test$browne.residual.adf$stat.group # level-specific test statistic?
   
   #TODO save overall fit measure (chi-sq)
   
-} #TODO figure out how to cbind() MCSampID, n, G, analType, etc to the result
+}
 
 #----
 
-# function 9: FIML for SR-SEM effects in`srm`----
+# function 10: FIML for SR-SEM effects in`srm`----
+
+#TODO check if any bugs & fix
 
 ogsrm <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor", 
                   IDin = "Partner", IDgroup = "Group", savefile = F) {
@@ -905,7 +939,7 @@ ogsrm <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor"
   
   V1@A ~~ V1@A + V1@P + 0*V2@A + 0*V2@P + 0*V3@A + 0*V3@P
   V1@P ~~ V1@P + 0*V2@A + 0*V2@P + 0*V3@A + 0*V3@P
-  V2@A ~~ V2@A + V2@P + 0*V3@A + 0*V3@P
+  V2@A ~~ V2@A + 0*V2@P + 0*V3@A + 0*V3@P
   V2@P ~~ V2@P + 0*V3@A + 0*V3@P
   V3@A ~~ V3@A + V3@P
   V3@P ~~ V3@P
@@ -923,11 +957,13 @@ ogsrm <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor"
   V2@PA ~~ Ind2var*V2@PA + 0*V3@AP + 0*V3@PA
   V3@AP ~~ Ind3var*V3@AP + V3@PA
   V3@PA ~~ Ind3var*V3@PA
-  ' #TODO check the model code --- equality constraints, constraints to 0 and 1---are they all correct?
+  ' #TODO check the model code --- equality constraints, constraints to 0 and 1---are they all correct? --- acc. to Nestler code
   
   fit_srm <- srm(mod_srm, rr.data, 
                  person_names = c(IDout, IDin), 
                  rrgroup_name = IDgroup, verbose = FALSE)
+  
+  #TODO fit a saturated model and compute the chi-square statistic using the -2*log likelihoods
   
   if (!fit_srm$res_opt$converged) return(NULL)
   
@@ -957,5 +993,16 @@ ogsrm <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor"
 }
 
 #----
+
+# function 11: create runsim files----
+#TODO
+#----
+
+# function 12: create shell files----
+#TODO
+#----
+
+
+
 
 
