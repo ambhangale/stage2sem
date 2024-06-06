@@ -151,13 +151,6 @@ genData <- function(n) {
   SIGMA_c <- SIGMA_mats$SIGMA_c # save person- and dyad-level pop.cov matrices
   SIGMA_d <- SIGMA_mats$SIGMA_d
   
-  Inames_c <- c("V1@A", "V2@A", "V3@A", "V1@P", "V2@P", "V3@P") # person-level indicator names
-  Inames_d <- c("V1@AP", "V1@PA", "V2@AP", "V2@PA", "V3@AP", "V3@PA") # dyad-level indicator names
-  
-  # changing names to generate data per SRM component
-  dimnames(SIGMA_c) <- list(Inames_c, Inames_c)
-  dimnames(SIGMA_d) <- list(Inames_d, Inames_d)
-  
   ##MEAN VECTOR-----
   mu <- rep(0, 6) # group-mean centered SRM component variables
   
