@@ -9,7 +9,7 @@
 
 # rm(list = ls())
 
-# setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem")
+# setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code")
 # getwd()
 
 ## README: only run stage1 for software-default, prophetic, and EB-FIML priors
@@ -813,11 +813,167 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor"
 # ----
 
 # function 8: create runsim files----
-#TODO
+
+makeRunsim <- function(nSamps, n, G, priorType, precision = NULL, sim) {
+  runsimfile <- paste0('## Aditi M. Bhangale
+## Last updated:', Sys.Date(), 
+                       
+'\n# Comparing maximum likelihood to two-stage estimation for structural equation 
+# models of social-network data
+
+# runsim_s1_',priorType, ifelse(!is.null(precision), paste0("_", precision), ""), '_n', n, '_G', G, '_',sim,'
+
+source("functions_SR_SEM_lavs1.R")
+
+# specify conditions\n',
+                       
+priorType,'_grid <- expand.grid(MCSampID = 1:', nSamps, ', n = ', n, ', G = ', G, ', priorType = "', 
+                                priorType, '",',
+                       ifelse(!is.null(precision), paste0('precision = ', precision), 
+                              paste0('precision = NA')), ',
+                              stringsAsFactors = F)\n',
+
+priorType,'_grid$row_num <- 1:nrow(', priorType,'_grid)
+
+# prepare parallel processing\n
+library(doSNOW)
+
+nClus <- 124
+cl <- makeCluster(nClus)
+registerDoSNOW(cl)
+
+# run simulation\n',
+
+paste0('s1Result <- foreach(row_num = 1:nrow(',priorType,'_grid),
+                    .packages = c("mnormt", "parallel", "portableParallelSeeds", 
+                    "srm", "car", "lavaan.srm", "coda",
+                    "modeest", "HDInterval", "rstan")) %dopar% {
+                                    
+out <- try(lavs1(MCSampID = ',priorType,'_grid[row_num, ]$MCSampID, 
+                    n = ',priorType,'_grid[row_num, ]$n, G = ',priorType,'_grid[row_num, ]$G,
+                    priorType = ',priorType,'_grid[row_num, ]$priorType, 
+                    precision = ',priorType,'_grid[row_num, ]$precision), silent = T)
+if(inherits(out, "try-error")) out <- NULL
+                                    
+return(out)
+  }
+         
+# close cluster\n
+stopCluster(cl)
+         
+saveRDS(s1Result, paste0("results_s1_', priorType, 
+       ifelse(!is.null(precision), paste0("_", precision), ""), 
+       '_n', n, '_G', G, '_', sim,'_", Sys.Date(),".rds"))
+         
+         ')
+  )
+  
+  cat(runsimfile, file = paste0("runsim_s1_", priorType, ifelse(!is.null(precision), paste0("_", precision), ""), 
+                                "_n", n, "_G", G, "_", sim, ".R"))
+  invisible(NULL)
+}
+
+# makeRunsim(nSamps = 3, n = 5, G = 3, priorType = "prophetic", precision = 0.1, sim = "sim1") # test
+
+## for simulation 1
+# makeRunsim(nSamps = 500, n = 6, G = 10, priorType = "default", sim = "sim1")
+# makeRunsim(nSamps = 500, n = 6, G = 25, priorType = "default", sim = "sim1")
+# makeRunsim(nSamps = 500, n = 6, G = 10, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 6, G = 25, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 6, G = 10, priorType = "FIML", precision = 0.1, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 6, G = 25, priorType = "FIML", precision = 0.1, sim = "sim1")
+# 
+# makeRunsim(nSamps = 500, n = 8, G = 10, priorType = "default", sim = "sim1")
+# makeRunsim(nSamps = 500, n = 8, G = 25, priorType = "default", sim = "sim1")
+# makeRunsim(nSamps = 500, n = 8, G = 10, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 8, G = 25, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 8, G = 10, priorType = "FIML", precision = 0.1, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 8, G = 25, priorType = "FIML", precision = 0.1, sim = "sim1")
+# 
+# makeRunsim(nSamps = 500, n = 10, G = 10, priorType = "default", sim = "sim1")
+# makeRunsim(nSamps = 500, n = 10, G = 25, priorType = "default", sim = "sim1")
+# makeRunsim(nSamps = 500, n = 10, G = 10, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 10, G = 25, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 10, G = 10, priorType = "FIML", precision = 0.1, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 10, G = 25, priorType = "FIML", precision = 0.1, sim = "sim1")
+# 
+# makeRunsim(nSamps = 500, n = 20, G = 10, priorType = "default", sim = "sim1")
+# makeRunsim(nSamps = 500, n = 20, G = 25, priorType = "default", sim = "sim1")
+# makeRunsim(nSamps = 500, n = 20, G = 10, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 20, G = 25, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 20, G = 10, priorType = "FIML", precision = 0.1, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 20, G = 25, priorType = "FIML", precision = 0.1, sim = "sim1")
+
 #----
 
 # function 9: create shell files----
-#TODO
+
+makeShSnellius <- function(n, G, priorType, precision = NULL, sim, wallTime) {
+  shell <- paste0('#!/bin/bash
+
+#SBATCH -J ', paste0(priorType, ifelse(!is.null(precision), paste0("_", precision), ""), "_n", n, "_G", G, "_", sim),'
+#SBATCH -e .', paste0(priorType, ifelse(!is.null(precision), paste0("_", precision), ""), "_n", n, "_G", G, "_", sim),'.SERR
+#SBATCH -o .', paste0(priorType, ifelse(!is.null(precision), paste0("_", precision), ""), "_n", n, "_G", G, "_", sim),'.SOUT
+#SBATCH -N 1
+#SBATCH -n 128
+#SBATCH -t ', wallTime,'
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=aditibhangale@gmail.com
+
+cd "$TMPDIR"
+
+module load 2023
+module load R/4.3.2-gfbf-2023a
+export MKL_NUM_THREADS=1
+
+export R_LIBS=$HOME/rpackages:$R_LIBS
+
+cp $HOME/SR-SEM/stage2sem/functions_SR_SEM_lavs1.R "$TMPDIR"
+cp $HOME/SR-SEM/stage2sem/', paste0("runsim_s1_", priorType, ifelse(!is.null(precision), paste0("_", precision), ""), 
+                                          "_n", n, "_G", G, "_", sim, ".R"),' "$TMPDIR"
+
+Rscript --vanilla ', paste0("runsim_s1_", priorType, ifelse(!is.null(precision), paste0("_", precision), ""), 
+                            "_n", n, "_G", G, "_", sim, ".R"),'
+
+cp "$TMPDIR"/*.rds $HOME/SR-SEM/stage2sem/' 
+                  
+  )
+  cat(shell, file = paste0("shell_s1_", priorType, ifelse(!is.null(precision), paste0("_", precision), ""), 
+                           "_n", n, "_G", G, "_", sim, ".sh"))
+  invisible(NULL)
+}
+
+# makeShSnellius(n = 5, G = 3, priorType = "prophetic", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00") # test
+
+# makeShSnellius(n = 6, G = 10, priorType = "default", sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 6, G = 25, priorType = "default", sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 6, G = 10, priorType = "prophetic", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 6, G = 25, priorType = "prophetic", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 6, G = 10, priorType = "FIML", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 6, G = 25, priorType = "FIML", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# 
+# makeShSnellius(n = 8, G = 10, priorType = "default", sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 8, G = 25, priorType = "default", sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 8, G = 10, priorType = "prophetic", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 8, G = 25, priorType = "prophetic", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 8, G = 10, priorType = "FIML", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 8, G = 25, priorType = "FIML", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# 
+# makeShSnellius(n = 10, G = 10, priorType = "default", sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 10, G = 25, priorType = "default", sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 10, G = 10, priorType = "prophetic", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 10, G = 25, priorType = "prophetic", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 10, G = 10, priorType = "FIML", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 10, G = 25, priorType = "FIML", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# 
+# makeShSnellius(n = 20, G = 10, priorType = "default", sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 20, G = 25, priorType = "default", sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 20, G = 10, priorType = "prophetic", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 20, G = 25, priorType = "prophetic", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 20, G = 10, priorType = "FIML", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 20, G = 25, priorType = "FIML", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
+
+
 #----
 
 
