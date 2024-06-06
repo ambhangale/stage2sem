@@ -797,10 +797,9 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor"
   attr(s1ests, "precision") <- ifelse(priorType == "default", "NA", precision)
   attr(s1ests, "iter") <- iter
   attr(s1ests, "RunTime") <- difftime(t1, t0, units = "mins")
-  
   attr(s1ests, "mPSRF") <- gelman.diag(As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env)), 
                           autoburnin = FALSE)$mpsrf
-  #FIXME below
+  
   if (savefile) saveRDS(s1ests, paste0("s1_ID", MCSampID, ".nG", G, ".n", n, "_", 
                                     priorType,  "_", ifelse(priorType == "default", "NA", precision), ".rds"))
   return(s1ests)
