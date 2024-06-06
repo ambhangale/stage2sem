@@ -1,9 +1,11 @@
 ## Aditi M. Bhangale
-## Last updated: 3 June 2024
+## Last updated: 6 June 2024
 
 # "Comparing maximum likelihood to two-stage estimation for structural equation 
 # models of social-network data"
 ## Using Nestler et al., 2020 population values
+
+## DATA GENERATION AND STAGE 1 CODE FOR `lavaan.srm`
 
 # rm(list = ls())
 
@@ -818,187 +820,11 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor"
 
 # ----
 
-# function 8: function to flag outliers in lavs1 output----
+# function 8: create runsim files----
 #TODO
 #----
 
-# function 9: stage2 SR_SEM in lavaan.srm----
-
-#TODO figure out how to cbind() MCSampID, n, G, analType, etc to the result
-
-### THE MODEL IS CORRECT, THIS IS JUST HOW NESTLER ET AL., FIT IT
-
-lavs2 <- function(s1ests) {
-  library(lavaan.srm)
-  
-  # stage2
-  mod <- ' group: 1
-  Factor_out =~ 1*V1_out + V2_out + V3_out
-  Factor_in =~ 1*V1_in + V2_in + V3_in
-  
-  Factor_out ~~ Factor_out + Factor_in
-  Factor_in ~~ Factor_in
-  
-  V1_out ~~ V1_out + V1_in
-  V1_in ~~ V1_in
-  V2_out ~~ V2_out
-  V2_in ~~ V2_in
-  V3_out ~~ V3_out + V3_in
-  V3_in ~~ V3_in
-  
-  group: 2
-  Factor_ij =~ 1*V1_ij + FL2*V2_ij + FL3*V3_ij
-  Factor_ji =~ 1*V1_ji + FL2*V2_ji + FL3*V3_ji
-  
-  Factor_ij ~~ Fvar*Factor_ij + Factor_ji
-  Factor_ji ~~ Fvar*Factor_ji
-  
-  V1_ij ~~ Ivar1*V1_ij
-  V1_ji ~~ Ivar1*V1_ji
-  V2_ij ~~ Ivar2*V2_ij + V2_ji
-  V2_ji ~~ Ivar2*V2_ji
-  V3_ij ~~ Ivar3*V3_ij + V3_ji
-  V3_ji ~~ Ivar3*V3_ji
-  '
-  
-  fit <- lavaan.srm(model = mod, data = s1ests, component = c("case", "dyad"), posterior.est = "mean")
-  
-  if(lavInspect(fit, "converged")) {
-    s2ests <- parameterEstimates(fit)
-    s2ests$lhs <- gsub("_out", "@A", gsub("_in", "@P", gsub("_ij", "@AP", gsub("_ji", "@PA", s2ests$lhs))))
-    s2ests$rhs <- gsub("_out", "@A", gsub("_in", "@P", gsub("_ij", "@AP", gsub("_ji", "@PA", s2ests$rhs))))
-    s2ests$par_names <- paste0(s2ests$lhs, s2ests$op, s2ests$rhs)
-    # remove factor loadings constrained for identification and redundant rows
-    s2ests <- s2ests[!(s2ests$par_names %in% c("Factor@A=~V1@A", "Factor@P=~V1@P", 
-                                               "Factor@AP=~V1@AP", "Factor@PA=~V1@PA",
-                                               "Factor@PA=~V2@PA", "Factor@PA=~V3@PA",
-                                               "Factor@PA~~Factor@PA", "V1@PA~~V1@PA",
-                                               "V2@PA~~V2@PA", "V3@PA~~V3@PA")), ]
-    popVals <- getSigma(return_mats = F)
-    s2ests <- merge(s2ests, popVals, by = "par_names")
-    s2ests$group <- ifelse(s2ests$group == 1, "case", "dyad")
-    s2ests$MCSampID <- attr(s1ests, "MCSampID")
-    s2ests$n <- attr(s1ests, "n"); s2ests$G <- attr(s1ests, "G")
-    s2ests$condition <- paste0(attr(s1ests, "n"), "-", attr(s1ests, "G"))
-    s2ests$analType <- "2SMLE"
-    s2ests$s1priorType <- paste0("MCMC-", attr(s1ests, "priorType"), "-", attr(s1ests, "precision"))
-    s2ests$s1iter <- attr(s1ests, "iter")
-    s2ests$s1mPSRF <- attr(s1ests, "mPSRF")
-    s2ests$coverage <- s2ests$ci.lower < s2ests$pop & s2ests$pop < s2ests$ci.upper
-    
-    s2ests <- s2ests[, c("MCSampID", "n", "G", "condition", "analType", "s1priorType", 
-                            "s1iter", "s1mPSRF", "par_names", "group", 
-                            "pop", "est", "se", "ci.lower", "ci.upper", "coverage")] # remove non-redundant rows and reorder
-  
-    s2mod <- c(MCSampID = attr(s1ests, "MCSampID"), n = attr(s1ests, "n"),
-               G = attr(s1ests, "G"), 
-               condition = paste0(attr(s1ests, "n"), "-", attr(s1ests, "G")), 
-               analType = "2SMLE", 
-               s1priorType  = paste0("MCMC-", attr(s1ests, "priorType"), "-", attr(s1ests, "precision")), 
-               s1iter = attr(s1ests, "iter"), s1mPSRF = attr(s1ests, "mPSRF"),
-               )
-    
-    # whole model--- chi-sq, df, p-value; group models---chi-sq only
-    
-    #TODO save model fit statistics---case level, dyad level, and the complete model
-    ## should i do this in the same dataframe or should i do this 
-    
-  } else {
-    s2result <- NULL
-  }
-  
-  #TODO saveRDS and if result is NULL, then what?
-  
-  # fit@test$browne.residual.adf$stat # overall test statistic?
-  # fit@test$browne.residual.adf$stat.group # level-specific test statistic?
-  
-  #TODO save overall fit measure (chi-sq)
-  
-}
-
-#----
-
-# function 10: FIML for SR-SEM effects in`srm`----
-
-#TODO check if any bugs & fix
-
-ogsrm <- function(MCSampID, n, G, rr.vars = c("V1", "V2", "V3"), IDout = "Actor", 
-                  IDin = "Partner", IDgroup = "Group", savefile = F) {
-  library(srm)
-  
-  rr.data <- genGroups(MCSampID = MCSampID, n = n, G = G, rr.vars = rr.vars)
-  
-  # model
-  mod_srm <- '
-  %Person 
-  Factor@A =~ 1*V1@A + V2@A + V3@A
-  Factor@P =~ 1*V1@P + V2@P + V3@P
-  
-  Factor@A ~~ Factor@A + Factor@P
-  Factor@P ~~ Factor@P
-  
-  V1@A ~~ V1@A + V1@P + 0*V2@A + 0*V2@P + 0*V3@A + 0*V3@P
-  V1@P ~~ V1@P + 0*V2@A + 0*V2@P + 0*V3@A + 0*V3@P
-  V2@A ~~ V2@A + 0*V2@P + 0*V3@A + 0*V3@P
-  V2@P ~~ V2@P + 0*V3@A + 0*V3@P
-  V3@A ~~ V3@A + V3@P
-  V3@P ~~ V3@P
-  
-  %Dyad 
-  Factor@AP =~ 1*V1@AP + FL2*V2@AP + FL3*V3@AP
-  Factor@PA =~ 1*V1@PA + FL2*V2@PA + FL3*V3@PA
-  
-  Factor@AP ~~ Fvar*Factor@AP + Factor@PA
-  Factor@PA ~~ Fvar*Factor@PA
-  
-  V1@AP ~~ Ind1var*V1@AP + 0*V1@PA + 0*V2@AP + 0*V2@PA + 0*V3@AP + 0*V3@PA
-  V1@PA ~~ Ind1var*V1@PA + 0*V2@AP + 0*V2@PA + 0*V3@AP + 0*V3@PA
-  V2@AP ~~ Ind2var*V2@AP + V2@PA + 0*V3@AP + 0*V3@PA
-  V2@PA ~~ Ind2var*V2@PA + 0*V3@AP + 0*V3@PA
-  V3@AP ~~ Ind3var*V3@AP + V3@PA
-  V3@PA ~~ Ind3var*V3@PA
-  ' #TODO check the model code --- equality constraints, constraints to 0 and 1---are they all correct? --- acc. to Nestler code
-  
-  fit_srm <- srm(mod_srm, rr.data, 
-                 person_names = c(IDout, IDin), 
-                 rrgroup_name = IDgroup, verbose = FALSE)
-  
-  #TODO fit a saturated model and compute the chi-square statistic using the -2*log likelihoods
-  
-  if (!fit_srm$res_opt$converged) return(NULL)
-  
-  srm.parm <- fit_srm$parm.table
-  
-  popVals <- rbind(getSigma(return_mats = F)$popVals_c, getSigma(return_mats = F)$popVals_d)
-  
-  results_srm <- merge(srm.parm, popVals, by = "par_names")
-  results_srm$level <- gsub("U", "case", gsub("D", "dyad", results_srm$level))
-  results_srm <- results_srm[, c("par_names", "pop", "level", "est", "se")]
-  
-  # coverage
-  results_srm$ci.lower <- results_srm$est - 1.96*results_srm$se
-  results_srm$ci.upper <- results_srm$est + 1.96*results_srm$se
-  results_srm$coverage <- results_srm$ci.lower < results_srm$pop & results_srm$pop < results_srm$ci.upper
-  
-  results_srm$bias <- results_srm$est - results_srm$pop
-  results_srm$RB <- results_srm$bias / results_srm$pop
-  
-  results_srm <- cbind(MCSampID, n, G, priorType = "ogsrm", precision = "NA", 
-                       iter = "NA", results_srm)
-  
-  if (savefile) saveRDS(results_srm, file = paste0("ID", MCSampID, ".nG", G, ".n", 
-                                                   n, "-srmML-og-og", ".rds"))
-  
-  return(results_srm)
-}
-
-#----
-
-# function 11: create runsim files----
-#TODO
-#----
-
-# function 12: create shell files----
+# function 9: create shell files----
 #TODO
 #----
 
