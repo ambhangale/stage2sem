@@ -9,7 +9,7 @@
 
 # rm(list = ls())
 
-# setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem")
+# setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code")
 # getwd()
 
 # MCSampID = 1; n = 5; G = 3
