@@ -1,5 +1,5 @@
 ## Aditi M. Bhangale
-## Last updated: 12 June 2024
+## Last updated: 14 June 2024
 
 # "Comparing maximum likelihood to two-stage estimation for structural equation 
 # models of social-network data"
@@ -9,7 +9,7 @@
 
 # rm(list = ls())
 
-# setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code")
+setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code")
 # getwd()
 
 # MCSampID = 1; n = 5; G = 3
@@ -25,7 +25,7 @@
 #----
 
 # function 11: stage2 SR_SEM in lavaan.srm----
-lavs2 <- function(s1ests) {
+lavs2 <- function(s1ests, savefile = FALSE) {
   library(lavaan.srm)
   
   # stage2
@@ -75,7 +75,7 @@ lavs2 <- function(s1ests) {
     popVals <- getSigma(return_mats = F)
     s2ests <- merge(s2ests, popVals, by = "par_names")
     s2ests$group <- ifelse(s2ests$group == 1, "case", "dyad")
-    names(s2ests)[names(s2ests) == "group"] <- "level"
+    names(s2ests)[names(s2ests) == "group"] <- "level" # rename 'group' column to 'level'
     s2ests$MCSampID <- attr(s1ests, "MCSampID")
     s2ests$n <- attr(s1ests, "n"); s2ests$G <- attr(s1ests, "G")
     s2ests$condition <- paste0(attr(s1ests, "n"), "-", attr(s1ests, "G"))
@@ -134,7 +134,8 @@ lavs2 <- function(s1ests) {
             dyad.df = 12, dyad.p = pchisq(fitStats$scaled.shifted$stat.group[2], 
                                           df = 12, lower = F)) # Scaled-shifted statistic
     
-    Ncase <- attr(s1ests, "nobs")["case"]; Ndyad <- attr(s1ests, "nobs")["dyad"]
+    Ncase <- attr(s1ests, "nobs")["case"]
+    Ndyad <- attr(s1ests, "nobs")["dyad"]
     Ntotal <- Ncase + Ndyad
     
     yb_corrected.combistat <- fitStats$browne.residual.adf$stat / (1 + (fitStats$browne.residual.adf$stat/Ntotal))
@@ -177,18 +178,28 @@ lavs2 <- function(s1ests) {
                               s1iter = attr(s1ests, "iter"),
                               s1mPSRF = attr(s1ests, "mPSRF"), rbind(standard, adf, sb, ss, yb_corrected, yb_F)))
     
-    
     #TODO don't forget to add redundant columns to make sure you can rbind() with the ogsrm() output later on
+    ## to both s2ests AND s2mod
+    
+    s2result <- list(s2ests = s2ests, s2mod = s2mod)
     
   } else {
     s2result <- NULL
   }
   
-  #TODO saveRDS and if result is NULL, then what?
-  
-  #TODO save overall fit measure (chi-sq)
-  
+  if (savefile) saveRDS(s2result, file = paste0("s2_ID", attr(s1ests, "MCSampID"),
+                                                ".nG", attr(s1ests, "G"), ".n", 
+                                                attr(s1ests, "n"), "_", attr(s1ests, "priorType"),
+                                                "_", attr(s1ests, "precision"), ".rds"))
+ if (is.null(s2result)) {
+   return(NULL)
+ } else {
+   return(s2result)
+ }
 }
+
+# lavs2(s1ests = lavs1(MCSampID = 1, n = 6, G = 10, priorType = "prophetic", precision = 0.1, iter = 200, savefile = F),
+#       savefile = T)
 
 #----
 
