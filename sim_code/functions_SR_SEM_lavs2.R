@@ -88,92 +88,104 @@ lavs2 <- function(s1ests, savefile = FALSE) {
     s2ests$s1iter <- attr(s1ests, "iter")
     s2ests$s1mPSRF <- attr(s1ests, "mPSRF")
     s2ests$coverage <- s2ests$ci.lower < s2ests$pop & s2ests$pop < s2ests$ci.upper
+    s2ests$bias <- s2ests$est - s2ests$pop
+    s2ests$RB <- s2ests$bias / s2ests$pop
     
     s2ests <- s2ests[, c("MCSampID", "n", "G", "condition", "analType", "s1priorType", 
                          "s1iter", "s1mPSRF", "par_names", "level", 
-                         "pop", "est", "se", "ci.lower", "ci.upper", "coverage")] # remove non-redundant rows and reorder
+                         "pop", "est", "se", "ci.lower", "ci.upper", "coverage", "bias", "RB")] # remove non-redundant rows and reorder
     
     fitStats <- fit@test # save all test statistics in a single object
     
+    df_combi <- 9 
+    df_case <- 6
+    df_dyad <- 3
+    
+    #FIXME are the fit statistics actually correct?
+    
     standard <- c(fitStat.type = fitStats$standard$test, 
                   combi.stat = fitStats$standard$stat, 
-                  combi.df = fitStats$standard$df, 
-                  combi.p = fitStats$standard$pvalue,
+                  combi.df = df_combi, 
+                  combi.p = pchisq(fitStats$standard$stat,
+                                   df = df_combi, lower = F),
                   case.stat = fitStats$standard$stat.group[1], 
-                  case.df = 6, case.p = pchisq(fitStats$standard$stat.group[1], 
-                                               df = 6, lower = F),
+                  case.df = df_case, case.p = pchisq(fitStats$standard$stat.group[1], 
+                                               df = df_case, lower = F),
                   dyad.stat = fitStats$standard$stat.group[2], 
-                  dyad.df = 3, dyad.p = pchisq(fitStats$standard$stat.group[2], 
-                                                df = 3, lower = F)) # Standard chi-square test
+                  dyad.df = df_dyad, dyad.p = pchisq(fitStats$standard$stat.group[2], 
+                                                df = df_dyad, lower = F)) # Standard chi-square test
     
     adf <- c(fitStat.type = fitStats$browne.residual.adf$test, 
              combi.stat = fitStats$browne.residual.adf$stat, 
-             combi.df = fitStats$browne.residual.adf$df, 
-             combi.p = fitStats$browne.residual.adf$pvalue,
+             combi.df = df_combi, 
+             combi.p = pchisq(fitStats$browne.residual.adf$stat,
+                              df = df_combi, lower = F),
              case.stat = fitStats$browne.residual.adf$stat.group[1], 
-             case.df = 6, case.p = pchisq(fitStats$browne.residual.adf$stat.group[1], 
-                                          df = 6, lower = F),
+             case.df = df_case, case.p = pchisq(fitStats$browne.residual.adf$stat.group[1], 
+                                          df = df_case, lower = F),
              dyad.stat = fitStats$browne.residual.adf$stat.group[2], 
-             dyad.df = 3, dyad.p = pchisq(fitStats$browne.residual.adf$stat.group[2], 
-                                           df = 3, lower = F)) # Browne's residual-based ADF
+             dyad.df = df_dyad, dyad.p = pchisq(fitStats$browne.residual.adf$stat.group[2], 
+                                           df = df_dyad, lower = F)) # Browne's residual-based ADF
     
     sb <- c(fitStat.type = fitStats$satorra.bentler$test, 
             combi.stat = fitStats$satorra.bentler$stat, 
-            combi.df = fitStats$satorra.bentler$df, 
-            combi.p = fitStats$satorra.bentler$pvalue,
+            combi.df = df_combi, 
+            combi.p = pchisq(fitStats$satorra.bentler$stat,
+                             df = df_combi, lower = F),
             case.stat = fitStats$satorra.bentler$stat.group[1], 
-            case.df = 6, case.p = pchisq(fitStats$satorra.bentler$stat.group[1], 
-                                         df = 6, lower = F),
+            case.df = df_case, case.p = pchisq(fitStats$satorra.bentler$stat.group[1], 
+                                         df = df_case, lower = F),
             dyad.stat = fitStats$satorra.bentler$stat.group[2], 
-            dyad.df = 3, dyad.p = pchisq(fitStats$satorra.bentler$stat.group[2], 
-                                          df = 3, lower = F)) # Satorra and Bentler's corrected statistic
+            dyad.df = df_dyad, dyad.p = pchisq(fitStats$satorra.bentler$stat.group[2], 
+                                          df = df_dyad, lower = F)) # Satorra and Bentler's corrected statistic
     ss <- c(fitStat.type = fitStats$scaled.shifted$test, 
             combi.stat = fitStats$scaled.shifted$stat, 
-            combi.df = fitStats$scaled.shifted$df, 
-            combi.p = fitStats$scaled.shifted$pvalue,
+            combi.df = df_combi, 
+            combi.p = pchisq(fitStats$scaled.shifted$stat,
+                             df = df_combi, lower = F),
             case.stat = fitStats$scaled.shifted$stat.group[1], 
-            case.df = 6, case.p = pchisq(fitStats$scaled.shifted$stat.group[1], 
-                                         df = 6, lower = F),
+            case.df = df_case, case.p = pchisq(fitStats$scaled.shifted$stat.group[1], 
+                                         df = df_case, lower = F),
             dyad.stat = fitStats$scaled.shifted$stat.group[2], 
-            dyad.df = 3, dyad.p = pchisq(fitStats$scaled.shifted$stat.group[2], 
-                                          df = 3, lower = F)) # Scaled-shifted statistic
+            dyad.df = df_dyad, dyad.p = pchisq(fitStats$scaled.shifted$stat.group[2], 
+                                          df = df_dyad, lower = F)) # Scaled-shifted statistic
     
     Ncase <- attr(s1ests, "nobs")["case"]
     Ndyad <- attr(s1ests, "nobs")["dyad"]
     Ntotal <- Ncase + Ndyad
     
-    #FIXME from here below: combi.df = 9, case.df = 6, dyad.df = 3
+    #FIXME from here below: combi.df = df_combi, case.df = df_case, dyad.df = df_dyad
     
     yb_corrected.combistat <- fitStats$browne.residual.adf$stat / (1 + (fitStats$browne.residual.adf$stat/Ntotal))
     yb_corrected.casestat <- fitStats$browne.residual.adf$stat.group[1] / (1 + (fitStats$browne.residual.adf$stat.group[1]/(Ncase)))
     yb_corrected.dyadstat <- fitStats$browne.residual.adf$stat.group[2] / (1 + (fitStats$browne.residual.adf$stat.group[2]/(Ndyad)))
-    yb_corrected.combip <- pchisq(yb_corrected.combistat, df = 9, lower = F)
-    yb_corrected.casep <- pchisq(yb_corrected.casestat, df = 6, lower = F)
-    yb_corrected.dyadp <- pchisq(yb_corrected.dyadstat, df = 3, lower = F)
+    yb_corrected.combip <- pchisq(yb_corrected.combistat, df = df_combi, lower = F)
+    yb_corrected.casep <- pchisq(yb_corrected.casestat, df = df_case, lower = F)
+    yb_corrected.dyadp <- pchisq(yb_corrected.dyadstat, df = df_dyad, lower = F)
     yb_corrected <- c(fitStat.type = "yuan.bentler.corrected.adf", 
                   combi.stat = yb_corrected.combistat, 
-                  combi.df = 9, 
+                  combi.df = df_combi, 
                   combi.p = yb_corrected.combip,
                   case.stat = yb_corrected.casestat, 
-                  case.df = 6, case.p = yb_corrected.casep,
+                  case.df = df_case, case.p = yb_corrected.casep,
                   dyad.stat = yb_corrected.dyadstat, 
-                  dyad.df = 3, dyad.p = yb_corrected.dyadp) # Yuan and Bentler's small-sample correction for ADF
+                  dyad.df = df_dyad, dyad.p = yb_corrected.dyadp) # Yuan and Bentler's small-sample correction for ADF
     
     
-    yb_F.combistat <- ((Ntotal - 9)/(Ntotal*9))*fitStats$browne.residual.adf$stat
-    yb_F.casestat <- ((Ncase - 6)/(Ntotal*6))*fitStats$browne.residual.adf$stat.group[1]
-    yb_F.dyadstat <- ((Ncase - 3)/(Ntotal*3))*fitStats$browne.residual.adf$stat.group[2]
-    yb_F.combip <- pchisq(yb_F.combistat, df = 9, lower = F)
-    yb_F.casep <- pchisq(yb_F.casestat, df = 6, lower = F)
-    yb_F.dyadp <- pchisq(yb_F.dyadstat, df = 3, lower = F)
+    yb_F.combistat <- ((Ntotal - df_combi)/(Ntotal*df_combi))*fitStats$browne.residual.adf$stat
+    yb_F.casestat <- ((Ncase - df_case)/(Ntotal*df_case))*fitStats$browne.residual.adf$stat.group[1]
+    yb_F.dyadstat <- ((Ncase - df_dyad)/(Ntotal*df_dyad))*fitStats$browne.residual.adf$stat.group[2]
+    yb_F.combip <- pchisq(yb_F.combistat, df = df_combi, lower = F)
+    yb_F.casep <- pchisq(yb_F.casestat, df = df_case, lower = F)
+    yb_F.dyadp <- pchisq(yb_F.dyadstat, df = df_dyad, lower = F)
     yb_F <- c(fitStat.type = "yuan.bentler.F", 
               combi.stat = yb_F.combistat, 
-              combi.df = paste0(9, ",", (Ntotal-9)), 
+              combi.df = paste0(df_combi, ",", (Ntotal-df_combi)), 
               combi.p = yb_F.combip,
               case.stat = yb_F.casestat, 
-              case.df = paste0(6, ",", (Ncase-6)), case.p = yb_F.casep,
+              case.df = paste0(df_case, ",", (Ncase-df_case)), case.p = yb_F.casep,
               dyad.stat = yb_F.dyadstat, 
-              dyad.df = paste0(3, ",", (Ndyad-3)), dyad.p = yb_F.dyadp) # Yuan and Bentler's F statistic based on ADF
+              dyad.df = paste0(df_dyad, ",", (Ndyad-df_dyad)), dyad.p = yb_F.dyadp) # Yuan and Bentler's F statistic based on ADF
     
     s2mod <- data.frame(cbind(MCSampID = attr(s1ests, "MCSampID"),
                               n = attr(s1ests, "n"),
