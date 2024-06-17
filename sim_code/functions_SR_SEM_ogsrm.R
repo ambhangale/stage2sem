@@ -1,5 +1,5 @@
 ## Aditi M. Bhangale
-## Last updated: 15 June 2024
+## Last updated: 17 June 2024
 
 # "Comparing maximum likelihood to two-stage estimation for structural equation 
 # models of social-network data"
@@ -203,35 +203,76 @@ ogsrm <- function(MCSampID, n, G, IDout = "Actor",
                   person_names = c(IDout, IDin), 
                   rrgroup_name = IDgroup, verbose = FALSE)
   
-  #### logLik(fit_combi)
-  #### logLik(fit_sat)
-  ### why the F is the df the same as the number of estimated parameters wtf
+  ### save LRT fit statistics
+  dev_sat <- fit_sat$dev
+  dev_combi <- fit_combi$dev
+  dev_case <- fit_case$dev
+  dev_dyad <- fit_dyad$dev
   
-  #TODO fit a saturated model and compute the chi-square statistic using the -2*log likelihoods
-  ## what if one model converges but the other doesn't
+  df_combi <- 9 
+  df_case <- 6
+  df_dyad <- 3 #; df_sat <- 0
   
+  if (fit_sat$res_opt$converged) {
+    if (fit_combi$res_opt$converged) {
+      stat_combi <- dev_combi - dev_sat
+      p_combi <- pchisq(stat_combi, df = df_combi, lower.tail = F)
+    } else {
+      stat_combi <- p_combi <- NULL
+    }
+    if (fit_case$res_opt$converged) {
+      stat_case <- dev_case - dev_sat
+      p_case <- pchisq(stat_case, df = df_case, lower.tail = F)
+    } else {
+      stat_case <- p_case <- NULL
+    }
+    if (fit_dyad$res_opt$converged) {
+      stat_dyad <- dev_dyad - dev_sat
+      p_dyad <- pchisq(stat_dyad, df = df_dyad, lower.tail = F)
+    } else {
+      stat_dyad <- p_dyad <- NULL
+    }
+  } else {
+    stat_combi <- stat_case <- stat_dyad <- p_combi <- p_case <- p_dyad <- NULL
+  }
+  
+  srm_LRT <- data.frame(cbind(MCSampID = MCSampID, n = n, G = G, condition = paste0(n, "-", G), 
+               analType = "FIML1S", s1priorType = "NA", s1iter = "NA", s1mPSRF = "NA", 
+               fitStat.type = "srm.LRT",
+               combi.stat = ifelse(is.null(stat_combi), "NA", stat_combi),
+               combi.df = df_combi,
+               combi.p = ifelse(is.null(p_combi), "NA", p_combi),
+               case.stat = ifelse(is.null(stat_case), "NA", stat_case),
+               case.df = df_case, 
+               case.p = ifelse(is.null(p_case), "NA", p_case),
+               dyad.stat = ifelse(is.null(stat_dyad), "NA", stat_dyad),
+               dyad.df = df_dyad, 
+               dyad.p = ifelse(is.null(p_dyad), "NA", p_dyad)))
+  
+  ### save parameter estimates from fit_combi
   if (!fit_combi$res_opt$converged) return(NULL)
   
   srm.parm <- fit_combi$parm.table
   
-  popVals <- rbind(getSigma(return_mats = F)$popVals_c, getSigma(return_mats = F)$popVals_d)
+  popVals <- getSigma(return_mats = F)
   
-  results_srm <- merge(srm.parm, popVals, by = "par_names")
-  results_srm$level <- gsub("U", "case", gsub("D", "dyad", results_srm$level))
-  results_srm <- results_srm[, c("par_names", "pop", "level", "est", "se")]
+  srm_ests <- merge(srm.parm, popVals, by = "par_names")
+  srm_ests$level <- gsub("U", "case", gsub("D", "dyad", srm_ests$level))
+  srm_ests <- srm_ests[, c("par_names", "level", "pop", "est", "se")]
   
   # coverage
-  results_srm$ci.lower <- results_srm$est - 1.96*results_srm$se # FIXME qnorm instead
-  results_srm$ci.upper <- results_srm$est + 1.96*results_srm$se
-  results_srm$coverage <- results_srm$ci.lower < results_srm$pop & results_srm$pop < results_srm$ci.upper
+  srm_ests$ci.lower <- srm_ests$est - qnorm(.975)*srm_ests$se 
+  srm_ests$ci.upper <- srm_ests$est + qnorm(.975)*srm_ests$se
+  srm_ests$coverage <- srm_ests$ci.lower < srm_ests$pop & srm_ests$pop < srm_ests$ci.upper
   
-  results_srm$bias <- results_srm$est - results_srm$pop
-  results_srm$RB <- results_srm$bias / results_srm$pop
+  srm_ests$bias <- srm_ests$est - srm_ests$pop
+  srm_ests$RB <- srm_ests$bias / srm_ests$pop
   
-  results_srm <- cbind(MCSampID, n, G, priorType = "ogsrm", precision = "NA", 
-                       iter = "NA", results_srm)
+  srm_ests <- cbind(MCSampID = MCSampID, n = n, G = G, condition = paste0(n, "-", G), 
+                    analType = "FIML1S", s1priorType = "NA", 
+                       s1iter = "NA", s1mPSRF = "NA", srm_ests) 
   
-  if (savefile) saveRDS(results_srm, file = paste0("ID", MCSampID, ".nG", G, ".n", 
+  if (savefile) saveRDS(srm_result, file = paste0("ID", MCSampID, ".nG", G, ".n", 
                                                    n, "-srmML-og-og", ".rds"))
   
   return(results_srm)
