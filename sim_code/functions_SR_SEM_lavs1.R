@@ -945,6 +945,7 @@ cp "$TMPDIR"/*.rds $HOME/SR-SEM/stage2sem/'
 
 # makeShSnellius(n = 5, G = 3, priorType = "prophetic", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00") # test
 
+## for simulation 1
 # makeShSnellius(n = 6, G = 10, priorType = "default", sim = "sim1", wallTime = "5-00:00:00")
 # makeShSnellius(n = 6, G = 25, priorType = "default", sim = "sim1", wallTime = "5-00:00:00")
 # makeShSnellius(n = 6, G = 10, priorType = "prophetic", precision = 0.1, sim = "sim1", wallTime = "5-00:00:00")
