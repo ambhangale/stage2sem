@@ -20,8 +20,6 @@ source("functions_SR_SEM_lavs1.R") # for data generation functions
 
 # function 12: FIML for SR-SEM effects in`srm`----
 
-#TODO check if any bugs & fix
-
 ogsrm <- function(MCSampID, n, G, IDout = "Actor", 
                   IDin = "Partner", IDgroup = "Group", savefile = F) {
   library(srm)
@@ -327,7 +325,7 @@ ogsrm <- function(MCSampID, n, G, IDout = "Actor",
   return(srm_result)
 }
 
-ogsrm(MCSampID = 1, n = 6, G = 10)
+# ogsrm(MCSampID = 1, n = 6, G = 10, savefile = T)
 
 #----
 
