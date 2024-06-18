@@ -1,5 +1,5 @@
 ## Aditi M. Bhangale
-## Last updated: 17 June 2024
+## Last updated: 18 June 2024
 
 # "Comparing maximum likelihood to two-stage estimation for structural equation 
 # models of social-network data"
@@ -203,7 +203,77 @@ ogsrm <- function(MCSampID, n, G, IDout = "Actor",
                   person_names = c(IDout, IDin), 
                   rrgroup_name = IDgroup, verbose = FALSE)
   
-  ### save LRT fit statistics
+  # PARAMETER ESTIMATES
+  if (fit_combi$res_opt$converged) {
+  srm.parm <- fit_combi$parm.table
+  
+  popVals <- getSigma(return_mats = F)
+  
+  srm_ests <- merge(srm.parm, popVals, by = "par_names")
+  srm_ests$level <- gsub("U", "case", gsub("D", "dyad", srm_ests$level))
+  srm_ests <- srm_ests[, c("par_names", "level", "pop", "est", "se")]
+  
+  # coverage
+  srm_ests$ci.lower <- srm_ests$est - qnorm(.975)*srm_ests$se 
+  srm_ests$ci.upper <- srm_ests$est + qnorm(.975)*srm_ests$se
+  srm_ests$coverage <- srm_ests$ci.lower < srm_ests$pop & srm_ests$pop < srm_ests$ci.upper
+  
+  srm_ests$bias <- srm_ests$est - srm_ests$pop
+  srm_ests$RB <- srm_ests$bias / srm_ests$pop
+  
+  srm_ests <- cbind(MCSampID = MCSampID, n = n, G = G, condition = paste0(n, "-", G), 
+                    analType = "FIML1S", s1priorType = "NA", 
+                       s1iter = "NA", s1mPSRF = "NA", srm_ests) 
+  } else {
+    if (fit_case$res_opt$converged) {
+      srm.parm_case <- fit_case$parm.table
+      popVals <- getSigma(return_mats = F)
+      
+      srm_ests_case <- merge(srm.parm_case, popVals, by = "par_names")
+      srm_ests_case$level <- "case"
+      srm_ests_case <- srm_ests_case[, c("par_names", "level", "pop", "est", "se")]
+      
+      # coverage
+      srm_ests_case$ci.lower <- srm_ests_case$est - qnorm(.975)*srm_ests_case$se 
+      srm_ests_case$ci.upper <- srm_ests_case$est + qnorm(.975)*srm_ests_case$se
+      srm_ests_case$coverage <- srm_ests_case$ci.lower < srm_ests_case$pop & srm_ests_case$pop < srm_ests_case$ci.upper
+      
+      srm_ests_case$bias <- srm_ests_case$est - srm_ests_case$pop
+      srm_ests_case$RB <- srm_ests_case$bias / srm_ests_case$pop
+      
+      srm_ests_case <- cbind(MCSampID = MCSampID, n = n, G = G, condition = paste0(n, "-", G), 
+                        analType = "FIML1S", s1priorType = "NA", 
+                        s1iter = "NA", s1mPSRF = "NA", srm_ests_case) 
+    } else {
+      srm_ests_case <- NULL
+    }
+    
+    if (fit_dyad$res_opt$converged) {
+      srm.parm_dyad <- fit_dyad$parm.table
+      popVals <- getSigma(return_mats = F)
+      
+      srm_ests_dyad <- merge(srm.parm_dyad, popVals, by = "par_names")
+      srm_ests_dyad$level <- "dyad"
+      srm_ests_dyad <- srm_ests_dyad[, c("par_names", "level", "pop", "est", "se")]
+      
+      # coverage
+      srm_ests_dyad$ci.lower <- srm_ests_dyad$est - qnorm(.975)*srm_ests_dyad$se 
+      srm_ests_dyad$ci.upper <- srm_ests_dyad$est + qnorm(.975)*srm_ests_dyad$se
+      srm_ests_dyad$coverage <- srm_ests_dyad$ci.lower < srm_ests_dyad$pop & srm_ests_dyad$pop < srm_ests_dyad$ci.upper
+      
+      srm_ests_dyad$bias <- srm_ests_dyad$est - srm_ests_dyad$pop
+      srm_ests_dyad$RB <- srm_ests_dyad$bias / srm_ests_dyad$pop
+      
+      srm_ests_dyad <- cbind(MCSampID = MCSampID, n = n, G = G, condition = paste0(n, "-", G), 
+                             analType = "FIML1S", s1priorType = "NA", 
+                             s1iter = "NA", s1mPSRF = "NA", srm_ests_dyad) 
+    } else {
+      srm_ests_dyad <- NULL
+    }
+    srm_ests <- rbind(srm_ests_case, srm_ests_dyad)
+  }
+  
+  # MODEL FIT
   dev_sat <- fit_sat$dev
   dev_combi <- fit_combi$dev
   dev_case <- fit_case$dev
@@ -211,7 +281,7 @@ ogsrm <- function(MCSampID, n, G, IDout = "Actor",
   
   df_combi <- 9 
   df_case <- 6
-  df_dyad <- 3 #; df_sat <- 0
+  df_dyad <- 3
   
   if (fit_sat$res_opt$converged) {
     if (fit_combi$res_opt$converged) {
@@ -237,48 +307,27 @@ ogsrm <- function(MCSampID, n, G, IDout = "Actor",
   }
   
   srm_LRT <- data.frame(cbind(MCSampID = MCSampID, n = n, G = G, condition = paste0(n, "-", G), 
-               analType = "FIML1S", s1priorType = "NA", s1iter = "NA", s1mPSRF = "NA", 
-               fitStat.type = "srm.LRT",
-               combi.stat = ifelse(is.null(stat_combi), "NA", stat_combi),
-               combi.df = df_combi,
-               combi.p = ifelse(is.null(p_combi), "NA", p_combi),
-               case.stat = ifelse(is.null(stat_case), "NA", stat_case),
-               case.df = df_case, 
-               case.p = ifelse(is.null(p_case), "NA", p_case),
-               dyad.stat = ifelse(is.null(stat_dyad), "NA", stat_dyad),
-               dyad.df = df_dyad, 
-               dyad.p = ifelse(is.null(p_dyad), "NA", p_dyad)))
+                              analType = "FIML1S", s1priorType = "NA", s1iter = "NA", s1mPSRF = "NA", 
+                              fitStat.type = "srm.LRT",
+                              combi.stat = ifelse(is.null(stat_combi), "NA", stat_combi),
+                              combi.df = df_combi,
+                              combi.p = ifelse(is.null(p_combi), "NA", p_combi),
+                              case.stat = ifelse(is.null(stat_case), "NA", stat_case),
+                              case.df = df_case, 
+                              case.p = ifelse(is.null(p_case), "NA", p_case),
+                              dyad.stat = ifelse(is.null(stat_dyad), "NA", stat_dyad),
+                              dyad.df = df_dyad, 
+                              dyad.p = ifelse(is.null(p_dyad), "NA", p_dyad)))
   
-  ### save parameter estimates from fit_combi
-  if (!fit_combi$res_opt$converged) return(NULL)
-  
-  srm.parm <- fit_combi$parm.table
-  
-  popVals <- getSigma(return_mats = F)
-  
-  srm_ests <- merge(srm.parm, popVals, by = "par_names")
-  srm_ests$level <- gsub("U", "case", gsub("D", "dyad", srm_ests$level))
-  srm_ests <- srm_ests[, c("par_names", "level", "pop", "est", "se")]
-  
-  # coverage
-  srm_ests$ci.lower <- srm_ests$est - qnorm(.975)*srm_ests$se 
-  srm_ests$ci.upper <- srm_ests$est + qnorm(.975)*srm_ests$se
-  srm_ests$coverage <- srm_ests$ci.lower < srm_ests$pop & srm_ests$pop < srm_ests$ci.upper
-  
-  srm_ests$bias <- srm_ests$est - srm_ests$pop
-  srm_ests$RB <- srm_ests$bias / srm_ests$pop
-  
-  srm_ests <- cbind(MCSampID = MCSampID, n = n, G = G, condition = paste0(n, "-", G), 
-                    analType = "FIML1S", s1priorType = "NA", 
-                       s1iter = "NA", s1mPSRF = "NA", srm_ests) 
+  srm_result <- list(srm_ests = srm_ests, srm_mod = srm_LRT)
   
   if (savefile) saveRDS(srm_result, file = paste0("ID", MCSampID, ".nG", G, ".n", 
                                                    n, "-srmML-og-og", ".rds"))
   
-  return(results_srm)
+  return(srm_result)
 }
 
-#TODO don't forget to add the redundant columns so you can easily rbind() things
+ogsrm(MCSampID = 1, n = 6, G = 10)
 
 #----
 
