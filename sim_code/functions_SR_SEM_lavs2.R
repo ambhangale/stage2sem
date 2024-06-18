@@ -155,6 +155,8 @@ lavs2 <- function(s1ests, savefile = FALSE) {
     s2ests_case <- s2ests_case[, c("MCSampID", "n", "G", "condition", "analType", "s1priorType", 
                          "s1iter", "s1mPSRF", "par_names", "level", 
                          "pop", "est", "se", "ci.lower", "ci.upper", "coverage", "bias", "RB")] # remove non-redundant rows and reorder
+    } else {
+      s2ests_case <- NULL
     }
     if (lavInspect(fit_dyad, "converged")) {
       s2ests_dyad <- parameterEstimates(fit_dyad)
@@ -183,7 +185,9 @@ lavs2 <- function(s1ests, savefile = FALSE) {
       s2ests_dyad <- s2ests_dyad[, c("MCSampID", "n", "G", "condition", "analType", "s1priorType", 
                                      "s1iter", "s1mPSRF", "par_names", "level", 
                                      "pop", "est", "se", "ci.lower", "ci.upper", "coverage", "bias", "RB")] # remove non-redundant rows and reorder
-    }
+    } else {
+      s2ests_dyad <- NULL
+      }
     s2ests <- rbind(s2ests_case, s2ests_dyad)
   }
   
@@ -285,6 +289,10 @@ lavs2 <- function(s1ests, savefile = FALSE) {
       sb.stat_dyad <- sb.p_dyad <- ss.stat_dyad <- ss.p_dyad <- 
       yb.corrected.stat_dyad <- yb.corrected.p_dyad <- yb.F.stat_dyad <- 
       yb.F.p_dyad <- NULL
+    
+    N_dyad <- attr(s1ests, "nobs")["dyad"]
+    yb.F.df2_dyad <- N_dyad - df_dyad
+    
   }
   
   standard <- c(fitStat.type = "standard", 
@@ -351,9 +359,6 @@ lavs2 <- function(s1ests, savefile = FALSE) {
                             s1priorType = paste0("MCMC-", attr(s1ests, "priorType"), "-", attr(s1ests, "precision")),
                             s1iter = attr(s1ests, "iter"),
                             s1mPSRF = attr(s1ests, "mPSRF"), rbind(standard, adf, sb, ss, yb.corrected, yb.F)))
-  
-  #TODO don't forget to add redundant columns to make sure you can rbind() with the ogsrm() output later on
-  ## to both s2ests AND s2mod
   
   s2result <- list(s2ests = s2ests, s2mod = s2mod)
   
