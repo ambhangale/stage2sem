@@ -9,7 +9,7 @@
 
 # rm(list = ls())
 
-setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code")
+# setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code")
 # getwd()
 
 # MCSampID = 1; n = 6; G = 10
@@ -404,6 +404,7 @@ export MKL_NUM_THREADS=1
 
 export R_LIBS=$HOME/rpackages:$R_LIBS
 
+cp $HOME/SR-SEM/stage2sem/functions_SR_SEM_lavs1.R "$TMPDIR" 
 cp $HOME/SR-SEM/stage2sem/functions_SR_SEM_ogsrm.R "$TMPDIR" 
 cp $HOME/SR-SEM/stage2sem/', paste0("runsim_ogsrm_n", n, "_G", G, "_", sim, ".R"),' "$TMPDIR"
 
@@ -419,3 +420,4 @@ cp "$TMPDIR"/*.rds $HOME/SR-SEM/stage2sem/'
 # makeShSnellius(n = 6, G = 10, sim = "sim1", wallTime = "5-00:00:00")
 
 #----
+
