@@ -23,7 +23,7 @@ source("functions_SR_SEM_lavs1.R") # for data generation functions
 ogsrm <- function(MCSampID, n, G, IDout = "Actor", 
                   IDin = "Partner", IDgroup = "Group", savefile = F) {
   library(srm)
-  
+  t0 <- Sys.time()
   rr.data <- genGroups(MCSampID = MCSampID, n = n, G = G)
   
   # model
@@ -317,6 +317,10 @@ ogsrm <- function(MCSampID, n, G, IDout = "Actor",
                               dyad.df = df_dyad, 
                               dyad.p = ifelse(is.null(p_dyad), "NA", p_dyad)))
   
+  t1 <- Sys.time()
+  
+  srm_ests$RunTime <- difftime(t1, t0, units = "mins")
+  
   srm_result <- list(srm_ests = srm_ests, srm_mod = srm_LRT)
   
   if (savefile) saveRDS(srm_result, file = paste0("ID", MCSampID, ".nG", G, ".n", 
@@ -378,7 +382,14 @@ paste0('ogResult <- foreach(row_num = 1:nrow(FIML1S_grid),
   invisible(NULL)
 }
 
-# makeRunsim(nSamps = 3, n = 6, G = 10, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 6, G = 10, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 6, G = 25, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 8, G = 10, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 8, G = 25, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 10, G = 10, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 10, G = 25, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 20, G = 10, sim = "sim1")
+# makeRunsim(nSamps = 500, n = 20, G = 25, sim = "sim1")
 
 #----
 
@@ -418,6 +429,13 @@ cp "$TMPDIR"/*.rds $HOME/SR-SEM/stage2sem/'
 }
 
 # makeShSnellius(n = 6, G = 10, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 6, G = 25, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 8, G = 10, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 8, G = 25, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 10, G = 10, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 10, G = 25, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 20, G = 10, sim = "sim1", wallTime = "5-00:00:00")
+# makeShSnellius(n = 20, G = 25, sim = "sim1", wallTime = "5-00:00:00")
 
 #----
 

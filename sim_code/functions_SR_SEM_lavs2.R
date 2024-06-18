@@ -20,15 +20,17 @@ setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code")
 # priorType = "prophetic"
 # iter = 100
 
-# function 10: function to flag outliers in lavs1 output----
+# function 1: function to flag outliers in lavs1 output----
 #TODO create a logical (TRUE/FALSE) attribute so that lavs2 runs only if it is outliers == FALSE
 ## otherwise lavs2 returns NULL
 #----
 
-# function 11: stage2 SR_SEM in lavaan.srm----
+# function 2: stage2 SR_SEM in lavaan.srm----
 
 lavs2 <- function(s1ests, savefile = FALSE) {
   library(lavaan.srm)
+  
+  t0 <- Sys.time()
   
   # stage2
   mod_combi <- ' group: 1
@@ -366,6 +368,9 @@ lavs2 <- function(s1ests, savefile = FALSE) {
                             s1iter = attr(s1ests, "iter"),
                             s1mPSRF = attr(s1ests, "mPSRF"), rbind(standard, adf, sb, ss, yb.corrected, yb.F)))
   
+  t1 <- Sys.time()
+  s2ests$RunTime <- difftime(t1, t0, units = "mins")
+  
   s2result <- list(s2ests = s2ests, s2mod = s2mod)
   
   if (savefile) saveRDS(s2result, file = paste0("s2_ID", attr(s1ests, "MCSampID"),
@@ -379,3 +384,10 @@ lavs2 <- function(s1ests, savefile = FALSE) {
 
 #----
 
+# function 3: create runsim files for stage2----
+#TODO create runsim files for stage2
+#----
+
+# function 4: create shell files for stage2----
+#TODO create shell files for stage2
+#----
