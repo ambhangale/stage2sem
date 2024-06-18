@@ -18,7 +18,7 @@ setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code")
 
 source("functions_SR_SEM_lavs1.R") # for data generation functions
 
-# function 12: FIML for SR-SEM effects in`srm`----
+# function 1: FIML for SR-SEM effects in`srm`----
 
 ogsrm <- function(MCSampID, n, G, IDout = "Actor", 
                   IDin = "Partner", IDgroup = "Group", savefile = F) {
@@ -329,3 +329,93 @@ ogsrm <- function(MCSampID, n, G, IDout = "Actor",
 
 #----
 
+# function 2: create runsim files for ogsrm----
+
+makeRunsim <- function(nSamps, n, G, sim) {
+  runsimfile <- paste0('## Aditi M. Bhangale
+## Last updated:', Sys.Date(), 
+                       
+'\n# Comparing maximum likelihood to two-stage estimation for structural equation 
+# models of social-network data
+
+# runsim_ogsrm_n', n, '_G', G, '_', sim,'
+
+source("functions_SR_SEM_ogsrm.R")
+
+# specify conditions\n
+                       
+FIML1S_grid <- expand.grid(MCSampID = 1:', nSamps, ', n = ', n, ', G = ', G, ')\n
+FIML1S_grid$row_num <- 1:nrow(FIML1S_grid)
+
+# prepare parallel processing\n
+library(doSNOW)
+
+nClus <- 124
+cl <- makeCluster(nClus)
+registerDoSNOW(cl)
+
+# run simulation\n',
+paste0('ogResult <- foreach(row_num = 1:nrow(FIML1S_grid),
+                    .packages = c("mnormt", "parallel", "portableParallelSeeds", 
+                                  "srm")) %dopar% {
+                                    
+                                    out <- try(ogsrm(MCSampID = FIML1S_grid[row_num, ]$MCSampID, 
+                                    n = FIML1S_grid[row_num, ]$n, 
+                                                    G = FIML1S_grid[row_num, ]$G), silent = T)
+                                    if(inherits(out, "try-error")) out <- NULL
+                                    
+                                    return(out)
+                                  }
+         
+   # close cluster\n
+   stopCluster(cl)
+   
+   saveRDS(ogResult, paste0("results_ogsrm_n', n, '_G', G, '_',sim, '_",Sys.Date(),".rds"))
+         ')
+  )
+  
+  cat(runsimfile, file = paste0("runsim_ogsrm_n", n, "_G", G, "_", sim, ".R"))
+  invisible(NULL)
+}
+
+# makeRunsim(nSamps = 3, n = 6, G = 10, sim = "sim1")
+
+#----
+
+# function 3: create shell files for ogsrm----
+
+makeShSnellius <- function(n, G, sim, wallTime) {
+  shell <- paste0('#!/bin/bash
+
+#SBATCH -J ', paste0("ogsrm_n", n, "_G", G, "_", sim),'
+#SBATCH -e .', paste0("ogsrm_n", n, "_G", G, "_", sim),'.SERR
+#SBATCH -o .', paste0("ogsrm_n", n, "_G", G, "_", sim),'.SOUT
+#SBATCH -N 1
+#SBATCH -n 128
+#SBATCH -t ', wallTime,'
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=aditibhangale@gmail.com
+
+cd "$TMPDIR"
+
+module load 2023
+module load R/4.3.2-gfbf-2023a
+export MKL_NUM_THREADS=1
+
+export R_LIBS=$HOME/rpackages:$R_LIBS
+
+cp $HOME/SR-SEM/stage2sem/functions_SR_SEM_ogsrm.R "$TMPDIR" 
+cp $HOME/SR-SEM/stage2sem/', paste0("runsim_ogsrm_n", n, "_G", G, "_", sim, ".R"),' "$TMPDIR"
+
+Rscript --vanilla ', paste0("runsim_ogsrm_n", n, "_G", G, "_", sim, ".R"),'
+
+cp "$TMPDIR"/*.rds $HOME/SR-SEM/stage2sem/' 
+
+)
+  cat(shell, file = paste0("shell_ogsrm_n", n, "_G", G, "_", sim, ".sh"))
+  invisible(NULL)
+}
+
+# makeShSnellius(n = 6, G = 10, sim = "sim1", wallTime = "5-00:00:00")
+
+#----
