@@ -223,6 +223,9 @@ lavs2 <- function(s1ests, savefile = FALSE) {
       sb.stat_combi <- sb.p_combi <- ss.stat_combi <- ss.p_combi <- 
       yb.corrected.stat_combi <- yb.corrected.p_combi <- yb.F.stat_combi <- 
       yb.F.p_combi <- NULL
+    
+    N_combi <- attr(s1ests, "nobs")["combi"]
+    yb.F.df2_combi <- N_combi - df_combi
   }
   
   if (lavInspect(fit_case, "converged")) {
@@ -256,6 +259,9 @@ lavs2 <- function(s1ests, savefile = FALSE) {
       sb.stat_case <- sb.p_case <- ss.stat_case <- ss.p_case <- 
       yb.corrected.stat_case <- yb.corrected.p_case <- yb.F.stat_case <- 
       yb.F.p_case <- NULL
+    
+    N_case <- attr(s1ests, "nobs")["case"]
+    yb.F.df2_case <- N_case - df_case
   }
   
   if (lavInspect(fit_dyad, "converged")) {
@@ -269,7 +275,7 @@ lavs2 <- function(s1ests, savefile = FALSE) {
     adf.stat_dyad <- adf.LRT_dyad$`Chisq diff`[2]
     adf.p_dyad <- adf.LRT_dyad$`Pr(>Chisq)`[2]
     
-    sb.LRT_dyad <- lavTestLRT(fit_dyad, method = "satorra.bentler.2001") # FIXME doesn't work. why?
+    sb.LRT_dyad <- lavTestLRT(fit_dyad, method = "satorra.bentler.2001")
     sb.stat_dyad <- sb.LRT_dyad$`Chisq diff`[2]
     sb.p_dyad <- sb.LRT_dyad$`Pr(>Chisq)`[2]
     
@@ -369,7 +375,7 @@ lavs2 <- function(s1ests, savefile = FALSE) {
    return(s2result)
 }
 
-lavs2(s1ests = s1ests, savefile = T)
+# lavs2(s1ests = s1ests, savefile = F)
 
 #----
 
