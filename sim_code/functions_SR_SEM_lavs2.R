@@ -205,7 +205,7 @@ lavs2 <- function(s1ests, savefile = FALSE) {
     adf.stat_combi <- adf.LRT_combi$`Chisq diff`[2]
     adf.p_combi <- adf.LRT_combi$`Pr(>Chisq)`[2]
     
-    sb.LRT_combi <- lavTestLRT(fit_combi, method = "satorra.bentler.2001")
+    sb.LRT_combi <- lavTestLRT(fit_combi, test = "satorra.bentler")
     sb.stat_combi <- sb.LRT_combi$`Chisq diff`[2]
     sb.p_combi <- sb.LRT_combi$`Pr(>Chisq)`[2]
     
@@ -241,7 +241,7 @@ lavs2 <- function(s1ests, savefile = FALSE) {
     adf.stat_case <- adf.LRT_case$`Chisq diff`[2]
     adf.p_case <- adf.LRT_case$`Pr(>Chisq)`[2]
     
-    sb.LRT_case <- lavTestLRT(fit_case, method = "satorra.bentler.2001")
+    sb.LRT_case <- lavTestLRT(fit_case, test = "satorra.bentler")
     sb.stat_case <- sb.LRT_case$`Chisq diff`[2]
     sb.p_case <- sb.LRT_case$`Pr(>Chisq)`[2]
     
@@ -277,7 +277,7 @@ lavs2 <- function(s1ests, savefile = FALSE) {
     adf.stat_dyad <- adf.LRT_dyad$`Chisq diff`[2]
     adf.p_dyad <- adf.LRT_dyad$`Pr(>Chisq)`[2]
     
-    sb.LRT_dyad <- lavTestLRT(fit_dyad, method = "satorra.bentler.2001")
+    sb.LRT_dyad <- lavTestLRT(fit_dyad, test = "satorra.bentler")
     sb.stat_dyad <- sb.LRT_dyad$`Chisq diff`[2]
     sb.p_dyad <- sb.LRT_dyad$`Pr(>Chisq)`[2]
     
