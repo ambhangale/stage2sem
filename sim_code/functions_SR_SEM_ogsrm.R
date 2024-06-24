@@ -1,5 +1,5 @@
 ## Aditi M. Bhangale
-## Last updated: 18 June 2024
+## Last updated: 24 June 2024
 
 # "Comparing maximum likelihood to two-stage estimation for structural equation 
 # models of social-network data"
@@ -264,7 +264,8 @@ ogsrm <- function(MCSampID, n, G, IDout = "Actor",
       
       srm_ests_dyad <- cbind(MCSampID = MCSampID, n = n, G = G, condition = paste0(n, "-", G), 
                              analType = "FIML1S", s1priorType = "NA", 
-                             s1iter = "NA", s1mPSRF = "NA", srm_ests_dyad) 
+                             s1iter = "NA", s1mPSRF = "NA", s1Reff_outlier = "NA",
+                             s1mPSRF_outlier = "NA", srm_ests_dyad) 
     } else {
       srm_ests_dyad <- NULL
     }
