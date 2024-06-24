@@ -20,7 +20,7 @@ setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code")
 # priorType = "prophetic"
 # iter = 100
 
-source("functions_SR_SEM_lavs1.R")
+# source("functions_SR_SEM_lavs1.R")
 
 # function 1: function to flag outliers in lavs1 output----
 
@@ -419,14 +419,91 @@ lavs2 <- function(s1ests, savefile = FALSE) {
    return(s2result)
 }
 
-# lavs2(s1ests = s1ests, savefile = F) -> bar
+# lavs2(s1ests = s1ests, savefile = F)
 
 #----
 
 # function 3: create runsim files for stage2----
-#TODO create runsim files for stage2
+
+makeRunsim2 <- function(nSamps, n, G, priorType, precision = NULL, sim, 
+                        cores = parallel::detectCores() - 1L) { #TODO
+  runsimfile <- paste0('## Aditi M. Bhangale
+## Last updated:', Sys.Date(), 
+                       
+'\n# Comparing maximum likelihood to two-stage estimation for structural equation 
+# models of social-network data
+
+# runsim_s2_',priorType, ifelse(!is.null(precision), paste0("_", precision), ""), '_n', n, '_G', G, '_',sim,'
+
+source("functions_SR_SEM_lavs1.R")
+source("functions_SR_SEM_lavs2.R")
+
+s1ests <- readRDS(grep(paste0("results_s1_", priorType, "_", precision, "_n", n, "_G", G, "_", sim), dir(), value = T))
+
+# prepare parallel processing\n
+library(doSNOW)
+
+nClus <- ', cores,'
+cl <- makeCluster(nClus)
+registerDoSNOW(cl)
+
+# run simulation\n',
+                       
+                       paste0('s2Result <- foreach(MCSampID = 1:',nSamps,
+                    ', .packages = "lavaan.srm") %dopar% {
+                                    
+out <- try(lavs2(s1ests[[MCSampID]], savefile = T), silent = T)
+if(inherits(out, "try-error")) out <- NULL
+                                    
+return(out)
+  }
+         
+# close cluster\n
+stopCluster(cl)
+         
+saveRDS(s2Result, paste0("results_s2_', priorType, 
+                              ifelse(!is.null(precision), paste0("_", precision), ""), 
+                              '_n', n, '_G', G, '_', sim,'_", Sys.Date(),".rds"))
+         
+         ')
+  )
+  
+  cat(runsimfile, file = paste0("runsim_s2_", priorType, ifelse(!is.null(precision), paste0("_", precision), ""), 
+                                "_n", n, "_G", G, "_", sim, ".R"))
+  invisible(NULL)
+}
+
+## for simulation 1
+# makeRunsim2(nSamps = 500, n = 6, G = 10, priorType = "default", sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 6, G = 25, priorType = "default", sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 6, G = 10, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 6, G = 25, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 6, G = 10, priorType = "FIML", precision = 0.1, sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 6, G = 25, priorType = "FIML", precision = 0.1, sim = "sim1")
+# 
+# makeRunsim2(nSamps = 500, n = 8, G = 10, priorType = "default", sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 8, G = 25, priorType = "default", sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 8, G = 10, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 8, G = 25, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 8, G = 10, priorType = "FIML", precision = 0.1, sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 8, G = 25, priorType = "FIML", precision = 0.1, sim = "sim1")
+# 
+# makeRunsim2(nSamps = 500, n = 10, G = 10, priorType = "default", sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 10, G = 25, priorType = "default", sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 10, G = 10, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 10, G = 25, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 10, G = 10, priorType = "FIML", precision = 0.1, sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 10, G = 25, priorType = "FIML", precision = 0.1, sim = "sim1")
+# 
+# makeRunsim2(nSamps = 500, n = 20, G = 10, priorType = "default", sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 20, G = 25, priorType = "default", sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 20, G = 10, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 20, G = 25, priorType = "prophetic", precision = 0.1, sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 20, G = 10, priorType = "FIML", precision = 0.1, sim = "sim1")
+# makeRunsim2(nSamps = 500, n = 20, G = 25, priorType = "FIML", precision = 0.1, sim = "sim1")
+
 #----
 
 # function 4: create shell files for stage2----
-#TODO create shell files for stage2
+## not doing, I'll run everything on Windows
 #----
