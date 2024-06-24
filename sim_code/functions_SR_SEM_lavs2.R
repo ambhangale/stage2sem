@@ -1,5 +1,5 @@
 ## Aditi M. Bhangale
-## Last updated: 18 June 2024
+## Last updated: 24 June 2024
 
 # "Comparing maximum likelihood to two-stage estimation for structural equation 
 # models of social-network data"
@@ -20,9 +20,34 @@ setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code")
 # priorType = "prophetic"
 # iter = 100
 
+source("functions_SR_SEM_lavs1.R")
+
 # function 1: function to flag outliers in lavs1 output----
-#TODO create a logical (TRUE/FALSE) attribute so that lavs2 runs only if it is outliers == FALSE
-## otherwise lavs2 returns NULL
+
+filterOut <- function(s1ests) {
+  # library(lavaan.srm)
+  
+  MCMC_pars <- c(paste0("pSigma[", outer(1:6, 1:6, FUN = paste, sep = ",")[upper.tri(diag(6), diag = TRUE)], "]"), # case level
+                 paste0("dSigma[", c(paste0(rep(1, each = 6), ",", 1:6), # relvar1; dyadcov11; intra/inter12; intra/inter13
+                                     paste0(rep(3, each = 4), ",", 3:6), #relvar2; dyadcov22; intra/inter23
+                                     paste0(rep(5, each = 2), ",", 5:6)), "]")) # relvar3; dyadcov33
+  
+  s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
+                                  probs = NULL)$summary)[MCMC_pars,]
+  
+  if (any(s1long$n_eff < 100, na.rm = TRUE) | any(s1long$Rhat > 1.05, na.rm = TRUE)) {
+    attr(s1ests, "Reff_outlier") <- TRUE # if ANY Rhats or effective sample sizes indicate non-convergence
+  } else {
+    attr(s1ests, "Reff_outlier") <- FALSE
+  }
+  
+  if (attributes(s1ests)$mPSRF > 1.05) {
+    attr(s1ests, "mPSRF_outlier") <- TRUE # if the overall mPSRF indicates non-convergence
+  } else {
+    attr(s1ests, "mPSRF_outlier") <- FALSE
+  }
+  return(s1ests)
+}
 #----
 
 # function 2: stage2 SR_SEM in lavaan.srm----
@@ -30,8 +55,12 @@ setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code")
 lavs2 <- function(s1ests, savefile = FALSE) {
   library(lavaan.srm)
   
-  t0 <- Sys.time()
+  s1ests <- filterOut(s1ests)
   
+  if (attributes(s1ests)$Reff_outlier && attributes(s1ests)$mPSRF_outlier) {
+    s2result <- NULL
+  } else {
+    t0 <- Sys.time()
   # stage2
   mod_combi <- ' group: 1
   Factor_out =~ 1*V1_out + V2_out + V3_out
@@ -127,10 +156,13 @@ lavs2 <- function(s1ests, savefile = FALSE) {
     s2ests$coverage <- s2ests$ci.lower < s2ests$pop & s2ests$pop < s2ests$ci.upper
     s2ests$bias <- s2ests$est - s2ests$pop
     s2ests$RB <- s2ests$bias / s2ests$pop
+    s2ests$s1Reff_outlier <- attr(s1ests, "Reff_outlier")
+    s2ests$s1mPSRF_outlier <- attr(s1ests, "mPSRF_outlier")
     
     s2ests <- s2ests[, c("MCSampID", "n", "G", "condition", "analType", "s1priorType", 
-                         "s1iter", "s1mPSRF", "par_names", "level", 
-                         "pop", "est", "se", "ci.lower", "ci.upper", "coverage", "bias", "RB")] # remove non-redundant rows and reorder
+                         "s1iter", "s1mPSRF", "s1Reff_outlier", "s1mPSRF_outlier", 
+                         "par_names", "level", "pop", "est", "se", "ci.lower", 
+                         "ci.upper", "coverage", "bias", "RB")] # remove non-redundant rows and reorder
   
   } else {
     if (lavInspect(fit_case, "converged")) {
@@ -153,10 +185,13 @@ lavs2 <- function(s1ests, savefile = FALSE) {
     s2ests_case$coverage <- s2ests_case$ci.lower < s2ests_case$pop & s2ests_case$pop < s2ests_case$ci.upper
     s2ests_case$bias <- s2ests_case$est - s2ests_case$pop
     s2ests_case$RB <- s2ests_case$bias / s2ests_case$pop
+    s2ests_case$s1Reff_outlier <- attr(s1ests, "Reff_outlier")
+    s2ests_case$s1mPSRF_outlier <- attr(s1ests, "mPSRF_outlier")
     
     s2ests_case <- s2ests_case[, c("MCSampID", "n", "G", "condition", "analType", "s1priorType", 
-                         "s1iter", "s1mPSRF", "par_names", "level", 
-                         "pop", "est", "se", "ci.lower", "ci.upper", "coverage", "bias", "RB")] # remove non-redundant rows and reorder
+                         "s1iter", "s1mPSRF", "s1Reff_outlier", "s1mPSRF_outlier", 
+                         "par_names", "level", "pop", "est", "se", "ci.lower", 
+                         "ci.upper", "coverage", "bias", "RB")] # remove non-redundant rows and reorder
     } else {
       s2ests_case <- NULL
     }
@@ -183,10 +218,13 @@ lavs2 <- function(s1ests, savefile = FALSE) {
       s2ests_dyad$coverage <- s2ests_dyad$ci.lower < s2ests_dyad$pop & s2ests_dyad$pop < s2ests_dyad$ci.upper
       s2ests_dyad$bias <- s2ests_dyad$est - s2ests_dyad$pop
       s2ests_dyad$RB <- s2ests_dyad$bias / s2ests_dyad$pop
+      s2ests_dyad$s1Reff_outlier <- attr(s1ests, "Reff_outlier")
+      s2ests_dyad$s1mPSRF_outlier <- attr(s1ests, "mPSRF_outlier")
       
       s2ests_dyad <- s2ests_dyad[, c("MCSampID", "n", "G", "condition", "analType", "s1priorType", 
-                                     "s1iter", "s1mPSRF", "par_names", "level", 
-                                     "pop", "est", "se", "ci.lower", "ci.upper", "coverage", "bias", "RB")] # remove non-redundant rows and reorder
+                                     "s1iter", "s1mPSRF", "s1Reff_outlier", "s1mPSRF_outlier", 
+                                     "par_names", "level", "pop", "est", "se", "ci.lower", 
+                                     "ci.upper", "coverage", "bias", "RB")] # remove non-redundant rows and reorder
     } else {
       s2ests_dyad <- NULL
       }
@@ -372,6 +410,7 @@ lavs2 <- function(s1ests, savefile = FALSE) {
   s2ests$RunTime <- difftime(t1, t0, units = "mins")
   
   s2result <- list(s2ests = s2ests, s2mod = s2mod)
+  }
   
   if (savefile) saveRDS(s2result, file = paste0("s2_ID", attr(s1ests, "MCSampID"),
                                                 ".nG", attr(s1ests, "G"), ".n", 
@@ -380,7 +419,7 @@ lavs2 <- function(s1ests, savefile = FALSE) {
    return(s2result)
 }
 
-# lavs2(s1ests = s1ests, savefile = F)
+# lavs2(s1ests = s1ests, savefile = F) -> bar
 
 #----
 
