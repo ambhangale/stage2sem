@@ -221,7 +221,8 @@ ogsrm <- function(MCSampID, n, G, IDout = "Actor",
   
   srm_ests <- cbind(MCSampID = MCSampID, n = n, G = G, condition = paste0(n, "-", G), 
                     analType = "FIML1S", s1priorType = "NA", 
-                       s1iter = "NA", s1mPSRF = "NA", srm_ests) 
+                       s1iter = "NA", s1mPSRF = "NA", s1Reff_outlier = "NA",
+                    s1mPSRF_outlier = "NA", srm_ests) 
   } else {
     if (fit_case$res_opt$converged) {
       srm.parm_case <- fit_case$parm.table
