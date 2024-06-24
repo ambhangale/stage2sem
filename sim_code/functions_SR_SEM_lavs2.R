@@ -441,8 +441,6 @@ source("functions_SR_SEM_lavs2.R")
 s1ests <- readRDS(grep("results_s1_', priorType, ifelse(!is.null(precision), paste0("_", precision), ""), '_n', n, '_G', 
 G, '_', sim, '"), dir(), value = T)
 
-# s1ests <- readRDS(grep(paste0("results_s1_", priorType, "_", precision, "_n", n, "_G", G, "_", sim), dir(), value = T))
-
 # prepare parallel processing\n
 library(doSNOW)
 
