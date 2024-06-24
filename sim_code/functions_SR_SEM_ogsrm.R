@@ -241,7 +241,8 @@ ogsrm <- function(MCSampID, n, G, IDout = "Actor",
       
       srm_ests_case <- cbind(MCSampID = MCSampID, n = n, G = G, condition = paste0(n, "-", G), 
                         analType = "FIML1S", s1priorType = "NA", 
-                        s1iter = "NA", s1mPSRF = "NA", srm_ests_case) 
+                        s1iter = "NA", s1mPSRF = "NA", s1Reff_outlier = "NA",
+                        s1mPSRF_outlier = "NA", srm_ests_case) 
     } else {
       srm_ests_case <- NULL
     }
@@ -330,7 +331,7 @@ ogsrm <- function(MCSampID, n, G, IDout = "Actor",
   return(srm_result)
 }
 
-# ogsrm(MCSampID = 1, n = 6, G = 10, savefile = T)
+# ogsrm(MCSampID = 1, n = 6, G = 10, savefile = T) -> foo
 
 #----
 
