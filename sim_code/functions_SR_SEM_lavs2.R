@@ -1,5 +1,5 @@
 ## Aditi M. Bhangale
-## Last updated: 24 June 2024
+## Last updated: 25 June 2024
 
 # "Comparing maximum likelihood to two-stage estimation for structural equation 
 # models of social-network data"
@@ -41,7 +41,7 @@ filterOut <- function(s1ests) {
     attr(s1ests, "Reff_outlier") <- FALSE
   }
   
-  if (attributes(s1ests)$mPSRF > 1.05) {
+  if (attr(s1ests, "mPSRF") > 1.05) {
     attr(s1ests, "mPSRF_outlier") <- TRUE # if the overall mPSRF indicates non-convergence
   } else {
     attr(s1ests, "mPSRF_outlier") <- FALSE
@@ -57,7 +57,7 @@ lavs2 <- function(s1ests, savefile = FALSE) {
   
   s1ests <- filterOut(s1ests)
   
-  if (attributes(s1ests)$Reff_outlier && attributes(s1ests)$mPSRF_outlier) {
+  if (attr(s1ests, "Reff_outlier") && attr(s1ests, "mPSRF_outlier")) {
     s2result <- NULL
   } else {
     t0 <- Sys.time()
