@@ -64,30 +64,38 @@ minLoss <- function(par = c(1.5, 1.5), targetCorr, accept.dev) {
 
 # function 5: ANOVA-based priors
 
-ANOVA_priors <- function(dat_rated, dat_casecov, 
+# iq.data = readRDS("rated_iq.rds")
+# covariate.data = readRDS("covariate_dat.rds")
+# default_prior <- lavaan.srm::srm_priors(data = iq.data[4:6], case_data = covariate.data[3:8])
+
+ANOVA_priors <- function(rr.data, case.data, 
                          rr.vars = c("peer.iq1","peer.iq5","peer.iq6"),
                          case.covs = c("self.iq1", "self.iq5", "self.iq6",
                                        "grade1", "grade2", "grade4"),
-                         IDout, IDin, IDgroup, precision, default_prior) {
-  # make sure names(dat_casecov) <- c("id", "group.id", "self.iq1", "self.iq5",
+                         IDout, IDin, IDgroup, 
+                         precision = 0.1, default_prior) {
+  # make sure names(case.data) <- c("id", "group.id", "self.iq1", "self.iq5",
   # "self.iq6", "grade1", "grade2", "grade4")
   
   priors <- default_prior
   library(TripleR)
   
   matNames_c <- c(paste0(rep(rr.vars, each = 2), c("_out", "_in")), case.covs)
-  covMat_c <- matrix(0, length(rr.vars)*2 + length(case.covs), length(rr.vars)*2 + length(case.covs),
-                     dimnames = list(matNames_c, matNames_c))
+  corMat_c <- matrix(0, length(rr.vars)*2 + length(case.covs), length(rr.vars)*2 + length(case.covs),
+                     dimnames = list(matNames_c, matNames_c)) # correlation matrix at case level
+  diag(corMat_c) <- 1
   matNames_d <- paste0(rep(rr.vars, each = 2), c("_ij", "_ji"))
   covMat_d <- matrix(0, length(rr.vars)*2, length(rr.vars)*2,
-                     dimnames = list(matNames_d, matNames_d))
+                     dimnames = list(matNames_d, matNames_d)) # covariance matrix at dyad level
+
+  uv.SDs <- vector() # to use in bivariate SRMs
   
-  for (r in 1:length(rr.vars)) {
-    uv.formula <- paste0(rr.vars[r], "~", IDout, "*", IDin)
+  for (rr in 1:length(rr.vars)) {
+    uv.formula <- paste0(rr.vars[rr], "~", IDout, "*", IDin)
     if (!missing(IDgroup)) uv.formula <- paste0(uv.formula, "|", IDgroup, collapse = "")
-    uvSRM <- RR(as.formula(uv.formula), data = dat_rated, na.rm = T)
+    uvSRM <- RR(as.formula(uv.formula), data = rr.data, na.rm = T)
     uv.gEsts <- cbind(uvSRM$varComp.groups[uvSRM$varComp.groups$type != "error variance",], 
-                      rr.var = rr.vars[r])
+                      rr.var = rr.vars[rr])
     uv.varNames <- unique(uv.gEsts$type[grep(" variance", uv.gEsts$type)])
     uv.covNames <- unique(uv.gEsts$type[grep("covariance", uv.gEsts$type)])
     
@@ -109,43 +117,153 @@ ANOVA_priors <- function(dat_rated, dat_casecov,
     })
     
     # construct covariance matrices (to compute correlation matrices)
-    covMat_c[paste0(rr.vars[r], "_out"), paste0(rr.vars[r], "_out")] <- uv.var["actor variance"]
-    covMat_c[paste0(rr.vars[r], "_in"), paste0(rr.vars[r], "_in")] <- uv.var["partner variance"]
-    covMat_c[paste0(rr.vars[r], "_out"), paste0(rr.vars[r], "_in")] <- covMat_c[paste0(rr.vars[r], "_in"), paste0(rr.vars[r], "_out")] <- 
-      uv.cov["actor-partner covariance"]
+    corMat_c[paste0(rr.vars[rr], "_out"), paste0(rr.vars[rr], "_in")] <- corMat_c[paste0(rr.vars[rr], "_in"), paste0(rr.vars[rr], "_out")] <- 
+      uv.cov["actor-partner covariance"] / sqrt(uv.var["actor variance"]*uv.var["partner variance"])
     
-    covMat_d[paste0(rr.vars[r], "_ij"), paste0(rr.vars[r], "_ij")] <- 
-      covMat_d[paste0(rr.vars[r], "_ji"), paste0(rr.vars[r], "_ji")] <- uv.var["relationship variance"]
-    covMat_d[paste0(rr.vars[r], "_ij"), paste0(rr.vars[r], "_ji")] <- 
-      covMat_d[paste0(rr.vars[r], "_ji"), paste0(rr.vars[r], "_ij")] <- uv.cov["relationship covariance"]
+    covMat_d[paste0(rr.vars[rr], "_ij"), paste0(rr.vars[rr], "_ij")] <- 
+      covMat_d[paste0(rr.vars[rr], "_ji"), paste0(rr.vars[rr], "_ji")] <- uv.var["relationship variance"]
+    covMat_d[paste0(rr.vars[rr], "_ij"), paste0(rr.vars[rr], "_ji")] <- 
+      covMat_d[paste0(rr.vars[rr], "_ji"), paste0(rr.vars[rr], "_ij")] <- uv.cov["relationship covariance"]
     
     ## SD priors
-    priors$rr_in_t[rr.vars[r],  "m"] <- sqrt(uv.var["partner variance"])
-    priors$rr_out_t[rr.vars[r], "m"] <- sqrt(uv.var["actor variance"])
-    priors$rr_rel_t[rr.vars[r], "m"] <- sqrt(uv.var["relationship variance"])
+    priors$rr_in_t[rr.vars[rr],  "m"] <- sqrt(uv.var["partner variance"])
+    priors$rr_out_t[rr.vars[rr], "m"] <- sqrt(uv.var["actor variance"])
+    priors$rr_rel_t[rr.vars[rr], "m"] <- sqrt(uv.var["relationship variance"])
     
-    priors$rr_in_t[rr.vars[r],  "sd"] <- priors$rr_out_t[rr.vars[r], "sd"] <- priors$rr_rel_t[rr.vars[r], "sd"] <- precision
+    priors$rr_in_t[rr.vars[rr],  "sd"] <- priors$rr_out_t[rr.vars[rr], "sd"] <- priors$rr_rel_t[rr.vars[rr], "sd"] <- precision
     
     
-    combi_dat <- merge(dat_casecov, uvSRM$effects, by = c("id", "group.id"))
+    combi_dat <- merge(case.data, uvSRM$effects, by = c("id", "group.id"))
     names(combi_dat) <- gsub(pattern = "[.]a", replacement = "_out", 
                              gsub(pattern = "[.]p", replacement = "_in", names(combi_dat)))
     
-    ## correlations with case-level covariates
     for (c in 1:length(case.covs)) {
-      covMat_c[paste0(rr.vars[r], "_out"), case.covs[c]] <- covMat_c[case.covs[c], paste0(rr.vars[r], "_out")] <- 
-        parCor(combi_dat[,case.covs[c]], combi_dat[,paste0(rr.vars[r], "_out")], combi_dat$group.id)$par.cor # covariance with outgoing effects
-      covMat_c[paste0(rr.vars[r], "_out"), case.covs[c]] <- covMat_c[case.covs[c], paste0(rr.vars[r], "_out")] <- 
-        parCor(combi_dat[,case.covs[c]], combi_dat[,paste0(rr.vars[r], "_out")], combi_dat$group.id)$par.cor # covariance with incoming effects
+      corMat_c[paste0(rr.vars[rr], "_out"), case.covs[c]] <- corMat_c[case.covs[c], paste0(rr.vars[rr], "_out")] <- 
+        parCor(combi_dat[,case.covs[c]], combi_dat[,paste0(rr.vars[rr], "_out")], combi_dat$group.id)$par.cor # correlation with outgoing effects
+      corMat_c[paste0(rr.vars[rr], "_in"), case.covs[c]] <- corMat_c[case.covs[c], paste0(rr.vars[rr], "_in")] <- 
+        parCor(combi_dat[,case.covs[c]], combi_dat[,paste0(rr.vars[rr], "_in")], combi_dat$group.id)$par.cor # correlation with incoming effects
+      #TODO change this to IDgroup --- make sure group IDs are "group.id"
       
-      # SDs for each covariate in diagonal
-      covMat_c[case.covs[c], case.covs[c]] <- sd(dat_casecov[,case.covs[c]])
+      # SD priors for each covariate
+      priors$case_cov_t[case.covs[c], "m"] <- sd(case.data[,case.covs[c]])
+      priors$case_cov_t[case.covs[c], "sd"] <- precision
+    }
+    
+    # saving to use for the bivariate SRMs
+    uv.SDs[paste0(rr.vars[rr], "_out")] <- sqrt(uv.var["actor variance"])
+    uv.SDs[paste0(rr.vars[rr], "_in")] <- sqrt(uv.var["partner variance"])
+  }
+  
+  for (rr in 2:length(rr.vars)) {
+    for (kk in 1:(rr-1)) {
+      bv.formula <- paste0(rr.vars[rr], "+", rr.vars[kk], "~", IDout, "*", IDin)
+      if (!missing(IDgroup)) bv.formula <- paste0(bv.formula, "|", IDgroup, collapse = "")
+      bvSRM <- RR(as.formula(paste0(bv.formula)), data = rr.data, na.rm = T)
+      bv.gEsts <- do.call("rbind", lapply(1:length(bvSRM$groups), 
+                                          function (g) cbind(bvSRM$groups[[g]]$bivariate, 
+                                                             Group = g, 
+                                                             rr.var = paste0(rr.vars[rr],",",rr.vars[kk]))))
+      bv.covNames <- unique(bv.gEsts$type[grep("covariance", bv.gEsts$type)])
+      
+      ## weighted mean of the covariances
+      bv.cov <- sapply(bv.covNames, function(type) {
+        #FIXME: TDJ: Observed "n" in data might be too large if listwise deleted by TripleR.
+        #       Can TripleR add $group.size to result? Why is it missing for bivariate?
+        #TODO: TDJ: weight dyad level by number of dyads?
+        n <- sapply(unique(rr.data[, IDgroup]),
+                    function(x) length(unique(rr.data[rr.data[,IDgroup] == x,][,IDout])), 
+                    simplify = TRUE)
+        weighted.mean(bv.gEsts[bv.gEsts$type == type,]$estimate, w = n-1)
+      })
+      
+      corMat_c[paste0(rr.vars[rr], "_out"), paste0(rr.vars[kk], "_out")] <- 
+        corMat_c[paste0(rr.vars[kk], "_out"), paste0(rr.vars[rr], "_out")] <- 
+        bv.cov["actor-actor covariance"] / (uv.SDs[paste0(rr.vars[rr], "_out")]* uv.SDs[paste0(rr.vars[kk], "_out")])
+      corMat_c[paste0(rr.vars[rr], "_in"), paste0(rr.vars[kk], "_in")] <- 
+        corMat_c[paste0(rr.vars[kk], "_in"), paste0(rr.vars[rr], "_in")] <- 
+        bv.cov["partner-partner covariance"] / (uv.SDs[paste0(rr.vars[rr], "_in")]* uv.SDs[paste0(rr.vars[kk], "_in")])
+      corMat_c[paste0(rr.vars[rr], "_out"), paste0(rr.vars[kk], "_in")] <- 
+        corMat_c[paste0(rr.vars[kk], "_in"), paste0(rr.vars[rr], "_out")] <- 
+        bv.cov["actor-partner covariance"] / (uv.SDs[paste0(rr.vars[rr], "_out")]* uv.SDs[paste0(rr.vars[kk], "_in")])
+      corMat_c[paste0(rr.vars[rr], "_in"), paste0(rr.vars[kk], "_out")] <- 
+        corMat_c[paste0(rr.vars[kk], "_out"), paste0(rr.vars[rr], "_in")] <- 
+        bv.cov["partner-actor covariance"] / (uv.SDs[paste0(rr.vars[rr], "_in")]* uv.SDs[paste0(rr.vars[kk], "_out")])
+      
+      covMat_d[paste0(rr.vars[rr], "_ij"), paste0(rr.vars[kk], "_ij")] <- 
+        covMat_d[paste0(rr.vars[kk], "_ij"), paste0(rr.vars[rr], "_ij")] <- 
+        covMat_d[paste0(rr.vars[rr], "_ji"), paste0(rr.vars[kk], "_ji")] <- 
+        covMat_d[paste0(rr.vars[kk], "_ji"), paste0(rr.vars[rr], "_ji")] <- 
+        bv.cov["intrapersonal relationship covariance"]
+      
+      covMat_d[paste0(rr.vars[rr], "_ij"), paste0(rr.vars[kk], "_ji")] <- 
+        covMat_d[paste0(rr.vars[kk], "_ji"), paste0(rr.vars[rr], "_ij")] <- 
+        covMat_d[paste0(rr.vars[rr], "_ji"), paste0(rr.vars[kk], "_ij")] <- 
+        covMat_d[paste0(rr.vars[kk], "_ij"), paste0(rr.vars[rr], "_ji")] <- 
+        bv.cov["interpersonal relationship covariance"]
     }
   }
   
+  corMat_d <- cov2cor(covMat_d)
   
+  for (c in 2:length(case.covs)) { # insert correlations between case-level covariates
+    for (cc in 1:(c-1)) {
+      corMat_c[case.covs[c], case.covs[cc]] <- corMat_c[case.covs[cc], case.covs[c]] <-
+        parCor(combi_dat[,case.covs[c]], combi_dat[,case.covs[cc]], combi_dat$group.id)$par.cor
+    }
+  }
   
-}
+  # if case-level correlation > abs(0.9) then rescale to +/-0.9 and populate srm_priors matrices
+  for (x in 2:nrow(corMat_c)) {
+    for (y in 1:(x-1)) {
+      corMat_c[x,y] <- ifelse(corMat_c[x,y]> 0.9, 0.9, 
+                              ifelse(corMat_c[x,y] < -0.9, -0.9, corMat_c[x,y]))
+      hyperpars_c <- optim(par = c(1.5, 1.5), fn = minLoss,
+                           targetCorr = corMat_c[x,y], accept.dev = precision,
+                           method = "L-BFGS-B", lower = 0)$par
+      priors$case_beta[x,y] <- hyperpars_c[1] # lower triangle
+      priors$case_beta[y,x] <- hyperpars_c[2] # upper triangle
+    }
+  }
+  
+  # if dyad-level correlation > abs(0.9) then rescale to +/-0.9, then populate srm_priors matrices 
+  corMat_d[row(corMat_d)!=col(corMat_d)] <- ifelse(corMat_d[row(corMat_d)!=col(corMat_d)] > 0.9, 0.9,
+                                                   ifelse(corMat_d[row(corMat_d)!=col(corMat_d)] < -0.9,
+                                                          -0.9, corMat_d[row(corMat_d)!=col(corMat_d)]))
+  
+  for (rr in 1:length(rr.vars)) {
+    
+    ### dyadic-- diagonal
+    dyadic_hyperpars <- optim(par = c(1.5, 1.5), fn = minLoss,
+                              targetCorr = corMat_d[paste0(rr.vars[rr], "_ij"), paste0(rr.vars[rr], "_ji")],
+                              accept.dev = precision, 
+                              method = "L-BFGS-B", lower = 0)$par
+    priors$rr_beta_a[rr,rr] <- dyadic_hyperpars[1]
+    priors$rr_beta_b[rr,rr] <- dyadic_hyperpars[2]
+    
+    if (rr > 1L) for (kk in 1:(rr-1)) { 
+      ### intra-- below diagonal
+      intra_hyperpars <- optim(par = c(1.5, 1.5), fn = minLoss,
+                               targetCorr = corMat_d[paste0(rr.vars[rr], "_ij"), paste0(rr.vars[kk], "_ij")],
+                               accept.dev = precision, 
+                               method = "L-BFGS-B", lower = 0)$par
+      priors$rr_beta_a[rr,kk] <- intra_hyperpars[1]
+      priors$rr_beta_b[rr,kk] <- intra_hyperpars[2]
+      ### inter-- above diagonal
+      inter_hyperpars <- optim(par = c(1.5, 1.5), fn = minLoss,
+                               targetCorr = corMat_d[paste0(rr.vars[rr], "_ij"), paste0(rr.vars[kk], "_ji")],
+                               accept.dev = precision, 
+                               method = "L-BFGS-B", lower = 0)$par
+      priors$rr_beta_a[kk,rr] <- inter_hyperpars[1]
+      priors$rr_beta_b[kk,rr] <- inter_hyperpars[2]
+    }
+  }
+  
+  priors
+} #TODO check again for bugs
+
+ANOVA_priors(rr.data = iq.data, case.data = covariate.data, 
+             IDout = "ego", IDin = "alter", IDgroup = "group",
+             default_prior = default_prior)
 
 #----
 
