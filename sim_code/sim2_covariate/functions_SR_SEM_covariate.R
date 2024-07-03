@@ -261,9 +261,15 @@ ANOVA_priors <- function(rr.data, case.data,
   priors
 } #TODO check again for bugs
 
+<<<<<<< HEAD
 # ANOVA_priors(rr.data = iq.data, case.data = covariate.data, 
 #              IDout = "ego", IDin = "alter", IDgroup = "group",
 #              default_prior = default_prior)
+=======
+ANOVA_priors(rr.data = iq.data, case.data = covariate.data, 
+             IDout = "ego", IDin = "alter", IDgroup = "group",
+             default_prior = default_prior)
+>>>>>>> b651a323d2ae1ee0ff7891afa15f4285b8de020f
 
 #----
 
