@@ -1,5 +1,5 @@
 ## Aditi M. Bhangale
-## Last updated: 3 July 2024
+## Last updated: 4 July 2024
 
 # "Comparing maximum likelihood to two-stage estimation for structural equation 
 # models of social-network data"
@@ -17,9 +17,117 @@ setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code/sim2_covariate/"
 #################################
 
 # function 0: generate level-specific (co)variance matrices----
-getSigma <- function(level) {
-  
-}
+getSigma <- function(return_mats = TRUE) {
+    popcov.vec_c <- c(0.367178156002207,0.0282638172371223,0.232566187414696,-0.00042303152370159,
+                      0.145404838183355,0.00256135404013844,0.19650649315067,0.141654940954547,
+                      0.0832506443945378,0.0179926118180312,0.0516975118928625,-0.00815220571888204,
+                      0.0282638172371223,0.118625041049478,0.00436854440779768,0.0994599593219533,
+                      0.00611922017653478,0.0940880968540291,0.0772761368510366,0.0918692560924219,
+                      0.0809180729246042,0.0826428880708735,0.0796935097239754,0.06850886275001,
+                      0.232566187414696,0.00436854440779768,0.470529300000656,-0.0119247565252019,
+                      0.309544649467953,-0.0430818983370867,0.122650544584262,0.248888862834933,
+                      0.158902022440876,0.00522078558607705,0.0818404324127288,-0.0155742030238611,
+                      -0.00042303152370159,0.0994599593219533,-0.0119247565252019,0.197907713215963,
+                      0.0107240331607381,0.178920190736849,0.0914084704107476,0.0991671583731612,
+                      0.114559778372169,0.192815472860378,0.168808200401105,0.140288023680691,
+                      0.145404838183355,0.00611922017653478,0.309544649467953,0.0107240331607381,
+                      0.419707598143518,0.0021001712597054,0.0906398691171177,0.16010599825563,
+                      0.293721236120613,0.0234391069284459,0.0570586359951145,0.0202568439692539,
+                      0.00256135404013844,0.0940880968540291,-0.0430818983370867,0.178920190736849,
+                      0.0021001712597054,0.189996325669525,0.0820405997800706,0.0897308819246081,
+                      0.103607444797212,0.179600581343282,0.168834134277284,0.144804682212415,
+                      0.19650649315067,0.0772761368510366,0.122650544584262,0.0914084704107476,
+                      0.0906398691171177,0.0820405997800706,0.73648636471313,0.364561502339407,
+                      0.346920016798681,0.102077086997001,0.0810390897699736,0.0658465393457167,
+                      0.141654940954547,0.0918692560924219,0.248888862834933,0.0991671583731612,
+                      0.16010599825563,0.0897308819246081,0.364561502339407,0.650560216188368,
+                      0.40072530226852,0.123389906869327,0.117031365329952,0.0602534410885451,
+                      0.0832506443945378,0.0809180729246042,0.158902022440876,0.114559778372169,
+                      0.293721236120613,0.103607444797212,0.346920016798681,0.40072530226852,
+                      0.714613137577745,0.135069195417365,0.1605460671607,0.134148244398022,
+                      0.0179926118180312,0.0826428880708735,0.00522078558607705,0.192815472860378,
+                      0.0234391069284459,0.179600581343282,0.102077086997001,0.123389906869327,
+                      0.135069195417365,0.508493900461932,0.287147572145552,0.208055233197341,
+                      0.0516975118928625,0.0796935097239754,0.0818404324127288,0.168808200401105,
+                      0.0570586359951145,0.168834134277284,0.0810390897699736,0.117031365329952,
+                      0.1605460671607,0.287147572145552,0.516170394363591,0.280945879685804,
+                      -0.00815220571888204,0.06850886275001,-0.0155742030238611,0.140288023680691,
+                      0.0202568439692539,0.144804682212415,0.0658465393457167,0.0602534410885451,
+                      0.134148244398022,0.208055233197341,0.280945879685804,0.475466332681621)
+      
+    pop.names_c <- c(paste0(rep(c("peer.iq1","peer.iq5","peer.iq6"), each = 2), c("_out", "_in")),
+                     "self.iq1", "self.iq5", "self.iq6",
+                     "grade1", "grade2", "grade4")
+    
+    popcov.mat_c <- matrix(popcov.vec_c, nrow = 12, ncol = 12, 
+                           dimnames = list(pop.names_c, pop.names_c))
+    
+    popcor.mat_c <- cov2cor(popcov.mat_c)
+    popSD.vec_c <- sqrt(diag(popcov.mat_c))
+    
+    
+    popcov.vec_d <- c(0.56852540197962,0.0216108061369262,0.0964086730430072,0.0468845156295315,
+                      0.0842288129678118,0.0423410677086223,0.0216108061369262,0.56852540197962,
+                      0.0468845156295315,0.0964086730430072,0.0423410677086223,0.0842288129678118,
+                      0.0964086730430072,0.0468845156295315,0.601841259106791,0.0445854813706347,
+                      0.263483539276719,0.0497165258128205,0.0468845156295315,0.0964086730430072,
+                      0.0445854813706347,0.601841259106791,0.0497165258128205,0.263483539276719,
+                      0.0842288129678118,0.0423410677086223,0.263483539276719,0.0497165258128205,
+                      0.689620794901647,0.0383268533702981,0.0423410677086223,0.0842288129678118,
+                      0.0497165258128205,0.263483539276719,0.0383268533702981,0.689620794901647)
+    
+    pop.names_d <- paste0(rep(c("peer.iq1","peer.iq5","peer.iq6"), each = 2), c("_ij", "_ji"))
+    
+    popcov.mat_d <- matrix(popcov.vec_d, nrow = 6, ncol = 6, 
+                           dimnames = list(pop.names_d, pop.names_d))
+    
+    popcor.mat_d <- cov2cor(popcov.mat_d)
+    popSD.vec_d <- sqrt(diag(popcov.mat_d))
+    
+    if (return_mats) {
+      return(list(pop.cov_c = popcov.mat_c, pop.cor_c = popcor.mat_c, pop.SD_c = popSD.vec_c,
+                  pop.cov_d = popcov.mat_d, pop.cor_d = popcor.mat_d, pop.SD_d = popSD.vec_d))
+    } else {
+      popcov.df_c <- as.data.frame(as.table(popcov.mat_c))
+      popcov.df_c$par_names <- paste0(popcov.df_c$Var1, "~~", popcov.df_c$Var2)
+      names(popcov.df_c)[names(popcov.df_c) == "Freq"] <- "pop.cov"
+      popcov.df_c <- popcov.df_c[, c("par_names", "pop.cov")]
+      
+      popcor.df_c <- as.data.frame(as.table(popcor.mat_c))
+      popcor.df_c$par_names <- paste0(popcor.df_c$Var1, "~~", popcor.df_c$Var2)
+      names(popcor.df_c)[names(popcor.df_c) == "Freq"] <- "pop.cor"
+      popcor.df_c <- popcor.df_c[, c("par_names", "pop.cor")]
+      
+      popSD.df_c <- as.data.frame(as.table(popSD.vec_c))
+      popSD.df_c$par_names <- paste0(popSD.df_c$Var1, "~~", popSD.df_c$Var1)
+      names(popSD.df_c)[names(popSD.df_c) == "Freq"] <- "pop.SD"
+      popSD.df_c <- popSD.df_c[, c("par_names", "pop.SD")]
+      
+      popcov.df_d <- as.data.frame(as.table(popcov.mat_d))
+      popcov.df_d$par_names <- paste0(popcov.df_d$Var1, "~~", popcov.df_d$Var2)
+      names(popcov.df_d)[names(popcov.df_d) == "Freq"] <- "pop.cov"
+      popcov.df_d <- popcov.df_d[, c("par_names", "pop.cov")]
+      
+      popcor.df_d <- as.data.frame(as.table(popcor.mat_d))
+      popcor.df_d$par_names <- paste0(popcor.df_d$Var1, "~~", popcor.df_d$Var2)
+      names(popcor.df_d)[names(popcor.df_d) == "Freq"] <- "pop.cor"
+      popcor.df_d <- popcor.df_d[, c("par_names", "pop.cor")]
+      
+      popSD.df_d <- as.data.frame(as.table(popSD.vec_d))
+      popSD.df_d$par_names <- paste0(popSD.df_d$Var1, "~~", popSD.df_d$Var1)
+      names(popSD.df_d)[names(popSD.df_d) == "Freq"] <- "pop.SD"
+      popSD.df_d <- popSD.df_d[, c("par_names", "pop.SD")]
+    
+      return(list(pop.cov = rbind(popcov.df_c, popcov.df_d),
+                  pop.cor = rbind(popcov.df_c, popcov.df_d),
+                  pop.SD = rbind(popSD.df_c, popSD.df_d)))
+      
+      }
+} # TODO if bugs in the ANOVA_priors function() these valeus will have to be updated
+
+# getSigma()
+# getSigma(return_mats = FALSE)
+
 #----
 
 # function 1: simulate data for a single group----
@@ -261,15 +369,10 @@ ANOVA_priors <- function(rr.data, case.data,
   priors
 } #TODO check again for bugs
 
-<<<<<<< HEAD
 # ANOVA_priors(rr.data = iq.data, case.data = covariate.data, 
 #              IDout = "ego", IDin = "alter", IDgroup = "group",
 #              default_prior = default_prior)
-=======
-ANOVA_priors(rr.data = iq.data, case.data = covariate.data, 
-             IDout = "ego", IDin = "alter", IDgroup = "group",
-             default_prior = default_prior)
->>>>>>> b651a323d2ae1ee0ff7891afa15f4285b8de020f
+
 
 #----
 
