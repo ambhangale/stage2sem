@@ -131,15 +131,108 @@ getSigma <- function(return_mats = TRUE) {
 #----
 
 # function 1: simulate data for a single group----
+genData <- function(n) {
+  popMats <- getSigma()
+  
+  pop.cov_c <- popMats$pop.cov_c
+  pop.cov_d <- popMats$pop.cov_d
+  
+  pop.mu_c <- rep(0, 12)
+  pop.mu_d <- rep(0, 6)
+  
+  library(mnormt) # for rmnorm()
+  
+  dat_c <- rmnorm(n = n, mean = pop.mu_c, varcov = pop.cov_c)
+  rr.dat_d <- rmnorm(n = (n*(n-1))/2, mean = pop.mu_d, varcov = pop.cov_d)
+  
+  covariate.dat_c <- as.data.frame(cbind(ID = 1:n, dat_c[, c("self.iq1", "self.iq5", "self.iq6",
+                               "grade1", "grade2", "grade4")]))
+  
+  rr.dat_c <- dat_c[, paste0(rep(c("peer.iq1","peer.iq5","peer.iq6"), 
+                                 each = 2), c("_out", "_in"))]
+  
+  Y.dat <- NULL
+  rr.names <- c("peer.iq1","peer.iq5","peer.iq6")
+  
+  for (rr in rr.names) {
+    ego.name <- paste0(rr, "_out")
+    ego.mat <- matrix(rr.dat_c[,ego.name], nrow = n, ncol = n, byrow = F) # each row = new ego
+    diag(ego.mat) <- NA
+    
+    alter.name <- paste0(rr, "_in")
+    alter.mat <- matrix(rr.dat_c[,alter.name], nrow = n, ncol = n, byrow = T) # each col = new alter
+    diag(alter.mat) <- NA
+    
+    R.mat <- matrix(NA, n, n)
+    ij.name <- paste0(rr, "_ij")
+    ji.name <- paste0(rr, "_ji")
+    
+    lt.indices <- which(lower.tri(R.mat, diag = F), arr.ind = T) # lower triangle indices
+    
+    R.mat[lt.indices] <- rr.dat_d[,ij.name]
+    R.mat[lt.indices[,2:1]] <- rr.dat_d[,ji.name]
+    
+    Y.adj <- ego.mat + alter.mat + R.mat # adjacency matrix for Y 
+    
+    # convert to long format
+    tempY.low <- cbind(lt.indices, Y.adj[lt.indices])
+    colnames(tempY.low) <- c("ego", "alter", rr)
+    
+    tempY.up <- cbind(lt.indices[,2:1], Y.adj[lt.indices[,2:1]])
+    colnames(tempY.up) <- c("ego", "alter", rr)
+    
+    tempY <- rbind(tempY.low, tempY.up)
+  
+  if (is.null(Y.dat)) {
+    Y.dat <- tempY
+  } else {
+    Y.dat <- merge(Y.dat, tempY) # necessary to generate multigroup data (next function)
+  }
+  }
+  return(list(rr.dat = Y.dat, covariate.dat = covariate.dat_c))
+}
+
+# genData(n = 5)
 
 #----
 
 # function 2: simulate data for multiple groups----
+genGroups <- function(MCSampID, n, G) {
+  # set the seed
+  library(parallel)
+  library(portableParallelSeeds)
+  mySeeds <- seedCreator(nReps = 5000, streamsPerRep = 1, seed = 1974)
+  setSeeds(projSeeds = mySeeds, run = MCSampID)
+  
+  rr.dat_multi <- lapply(1:G, function(g){
+    rr.dat_single <- genData(n = n)$rr.dat
+    
+    rr.dat_single$ego <- rr.dat_single$ego + g*100
+    rr.dat_single$alter <- rr.dat_single$alter + g*100
+    
+    cbind(group = g, rr.dat_single)
+  })
+  
+  rr.dat_multi <- do.call("rbind", rr.dat_multi)
+  
+  covariate.dat_multi <- lapply(1:G, function(g) {
+    covariate.dat_single <- genData(n = n)$covariate.dat
+    
+    covariate.dat_single$ID <- covariate.dat_single$ID + g*100
+    
+    cbind(group = g, covariate.dat_single)
+  })
+  
+  covariate.dat_multi <- do.call("rbind", covariate.dat_multi)
+  
+  return(list(rr.dat = rr.dat_multi, covariate.dat = covariate.dat_multi))
+}
+
+# genGroups(MCSampID = 1, n = 5, G = 3)
 
 #----
 
 # function 3: minimum loss function to optimise over to choose hyperparameters for beta priors----
-
 minLoss <- function(par = c(1.5, 1.5), targetCorr, accept.dev) {
   # targetCorr = population correlation value we want to estimate
   # accept.dev = average deviation from targetCorr we are willing to accept
@@ -167,23 +260,125 @@ minLoss <- function(par = c(1.5, 1.5), targetCorr, accept.dev) {
 #----
 
 # function 4: prophetic priors
+prophetic_priors <- function(pop.corMat, pop.SDvec, rr.vars, case.covs, 
+                             precision, default_prior) {
+  ###  JUST WHILE I CONSTRUCT THE FUNCTION
+  # dat <- genGroups(1, 5, 3)
+  # default_prior <- srm_priors(data = dat$rr.dat[,4:6], case_data = dat$covariate.dat[,3:8])
+  # popVals <- getSigma()
+  # pop.corMat = list(pop.cor_c = popVals$pop.cor_c, pop.cor_d = popVals$pop.cor_d)
+  # pop.SDvec = list(pop.SD_c = popVals$pop.SD_c, pop.SD_d = popVals$pop.SD_d)
+  # rr.vars = c("peer.iq1","peer.iq5","peer.iq6")
+  # case.covs = c("self.iq1", "self.iq5", "self.iq6", "grade1", "grade2", "grade4")
+  # precision = 0.1
+  
+  priors <- default_prior
+  
+  # priors for SDs---t priors
+  pop.SD_c <- pop.SDvec$pop.SD_c
+  pop.SD_d <- pop.SDvec$pop.SD_d
+  
+  priors$rr_in_t$m <- pop.SD_c[paste0(c("peer.iq1","peer.iq5","peer.iq6"), "_in")]
+  priors$rr_out_t$m <- pop.SD_c[paste0(c("peer.iq1","peer.iq5","peer.iq6"), "_out")]
+  priors$rr_rel_t$m <- pop.SD_d[paste0(c("peer.iq1","peer.iq5","peer.iq6"), "_ij")]
+  priors$case_cov_t$m <- pop.SD_c[case.covs]
+  
+  priors$rr_in_t$sd <- priors$rr_out_t$sd <- priors$rr_rel_t$sd <- rep(precision, length(rr.vars))
+  priors$case_cov_t$sd <- rep(precision, length(case.covs))
+  
+  
+  # priors for correlations---beta priors
+  
+  ## begin: case-level hyperpars----
+  pop.cor_c <- pop.corMat$pop.cor_c
+  
+  targetVals_c <- as.list(pop.cor_c[lower.tri(pop.cor_c)])
+  newHyperpars_c <- mapply(function(tc, ...) optim(par = c(1.5, 1.5), fn = minLoss, ...)$par, 
+                           targetCorr = targetVals_c, accept.dev = precision,
+                           method = "L-BFGS-B", lower = 0, SIMPLIFY = FALSE)
+  
+  # save the new (strongly informative) alpha and beta parameters
+  alpha_c <- sapply(newHyperpars_c, "[[", 1)
+  beta_c <- sapply(newHyperpars_c, "[[", 2)
+  
+  # populate alpha hyperpars
+  priors$case_beta[lower.tri(priors$case_beta, diag = FALSE)] <- alpha_c
+  
+  # populate beta parameters
+  betamat_c <- matrix(NA, 12, 12)
+  betamat_c[lower.tri(betamat_c, diag = FALSE)] <- beta_c
+  betamat_c <- t(betamat_c)
+  priors$case_beta[upper.tri(priors$case_beta, diag = FALSE)] <- 
+  betamat_c[upper.tri(betamat_c, diag = FALSE)]
+  ## end: case-level hyperpars----
+  
+  ## begin: dyad-level hyperpars----
+  pop.cor_d <- pop.corMat$pop.cor_d
+  
+  # saving the population correlation values
+  ## DIAG == dyadic reciprocity -- [2,1]; [4,3]; [6,5]
+  ## ABOVE = inter -- [3,2]; [5,2]; [5,4]
+  ## BELOW = intra -- [4,2]; [6,2]; [6,4]
+  targetVals_d <- list(dyad1 = pop.cor_d[2,1], 
+                       dyad2 = pop.cor_d[4,3], 
+                       dyad3 = pop.cor_d[6,5],
+                       inter21 = pop.cor_d[3,2], 
+                       inter31 = pop.cor_d[5,2], 
+                       inter32 = pop.cor_d[5,4],
+                       intra21 = pop.cor_d[4,2], 
+                       intra31 = pop.cor_d[6,2], 
+                       intra32 = pop.cor_d[6,4])
+  
+  newHyperpars_d <- mapply(function(tc, ...) optim(par = c(1.5, 1.5), fn = minLoss, ...)$par, 
+                           targetCorr = targetVals_d, accept.dev = precision,
+                           method = "L-BFGS-B", lower = 0, SIMPLIFY = FALSE)
+  
+  # new hyperpars for dyadic reciprocity, interpersonal corr, and intrapersonal corr
+  dyad_alpha <- c(newHyperpars_d$dyad1[1], newHyperpars_d$dyad2[1], newHyperpars_d$dyad3[1])
+  dyad_beta <- c(newHyperpars_d$dyad1[2], newHyperpars_d$dyad2[2], newHyperpars_d$dyad3[2])
+  
+  inter_alpha <- c(newHyperpars_d$inter21[1], newHyperpars_d$inter31[1], newHyperpars_d$inter32[1])
+  inter_beta <- c(newHyperpars_d$inter21[2], newHyperpars_d$inter31[2], newHyperpars_d$inter32[2])
+  
+  intra_alpha <- c(newHyperpars_d$intra21[1], newHyperpars_d$intra31[1], newHyperpars_d$intra32[1])
+  intra_beta <- c(newHyperpars_d$intra21[2], newHyperpars_d$intra31[2], newHyperpars_d$intra32[2])
+  
+  # replace in priors tables
+  diag(priors$rr_beta_a) <- dyad_alpha
+  diag(priors$rr_beta_b) <- dyad_beta # dyadic reciprocities on diagonal
+  
+  priors$rr_beta_a[upper.tri(priors$rr_beta_a)] <- inter_alpha
+  priors$rr_beta_b[upper.tri(priors$rr_beta_b)] <- inter_beta # inter = above
+  
+  priors$rr_beta_a[lower.tri(priors$rr_beta_a)] <- intra_alpha
+  priors$rr_beta_b[lower.tri(priors$rr_beta_b)] <- intra_beta # intra = below
+  
+  ## end: dyad-level hyperpars----
+  
+  return(priors)
+} #TODO check beta hyperpars assignment in case and dyad level---i'm not completely confident about this
+
+# library(lavaan.srm)
+# dat <- genGroups(1, 5, 3)
+# popVals <- getSigma()
+# prophetic_priors(pop.corMat = list(pop.cor_c = popVals$pop.cor_c, pop.cor_d = popVals$pop.cor_d),
+#                  pop.SDvec = list(pop.SD_c = popVals$pop.SD_c, pop.SD_d = popVals$pop.SD_d),
+#                  rr.vars = c("peer.iq1","peer.iq5","peer.iq6"),
+#                  case.covs = c("self.iq1", "self.iq5", "self.iq6", "grade1", "grade2", "grade4"),
+#                  precision = 0.1,
+#                  default_prior = srm_priors(data = dat$rr.dat[,4:6], case_data = dat$covariate.dat[,3:8]))
 
 #----
 
-# function 5: ANOVA-based priors
-
-# iq.data = readRDS("rated_iq.rds")
-# covariate.data = readRDS("covariate_dat.rds")
-# default_prior <- lavaan.srm::srm_priors(data = iq.data[4:6], case_data = covariate.data[3:8])
-
+# function 5: ANOVA-based priors----
 ANOVA_priors <- function(rr.data, case.data, 
                          rr.vars = c("peer.iq1","peer.iq5","peer.iq6"),
                          case.covs = c("self.iq1", "self.iq5", "self.iq6",
                                        "grade1", "grade2", "grade4"),
                          IDout, IDin, IDgroup, 
                          precision = 0.1, default_prior) {
-  # make sure names(case.data) <- c("id", "group.id", "self.iq1", "self.iq5",
-  # "self.iq6", "grade1", "grade2", "grade4")
+  
+  names(case.data) <- c("group.id", "id", case.covs) # to make compatible with TripleR output
   
   priors <- default_prior
   library(TripleR)
@@ -245,16 +440,16 @@ ANOVA_priors <- function(rr.data, case.data,
     names(combi_dat) <- gsub(pattern = "[.]a", replacement = "_out", 
                              gsub(pattern = "[.]p", replacement = "_in", names(combi_dat)))
     
-    for (c in 1:length(case.covs)) {
-      corMat_c[paste0(rr.vars[rr], "_out"), case.covs[c]] <- corMat_c[case.covs[c], paste0(rr.vars[rr], "_out")] <- 
-        parCor(combi_dat[,case.covs[c]], combi_dat[,paste0(rr.vars[rr], "_out")], combi_dat$group.id)$par.cor # correlation with outgoing effects
-      corMat_c[paste0(rr.vars[rr], "_in"), case.covs[c]] <- corMat_c[case.covs[c], paste0(rr.vars[rr], "_in")] <- 
-        parCor(combi_dat[,case.covs[c]], combi_dat[,paste0(rr.vars[rr], "_in")], combi_dat$group.id)$par.cor # correlation with incoming effects
+    for (cc in 1:length(case.covs)) {
+      corMat_c[paste0(rr.vars[rr], "_out"), case.covs[cc]] <- corMat_c[case.covs[cc], paste0(rr.vars[rr], "_out")] <- 
+        parCor(combi_dat[,case.covs[cc]], combi_dat[,paste0(rr.vars[rr], "_out")], combi_dat$group.id)$par.cor # correlation with outgoing effects
+      corMat_c[paste0(rr.vars[rr], "_in"), case.covs[cc]] <- corMat_c[case.covs[cc], paste0(rr.vars[rr], "_in")] <- 
+        parCor(combi_dat[,case.covs[cc]], combi_dat[,paste0(rr.vars[rr], "_in")], combi_dat$group.id)$par.cor # correlation with incoming effects
       #TODO change this to IDgroup --- make sure group IDs are "group.id"
       
       # SD priors for each covariate
-      priors$case_cov_t[case.covs[c], "m"] <- sd(case.data[,case.covs[c]])
-      priors$case_cov_t[case.covs[c], "sd"] <- precision
+      priors$case_cov_t[case.covs[cc], "m"] <- sd(case.data[,case.covs[cc]])
+      priors$case_cov_t[case.covs[cc], "sd"] <- precision
     }
     
     # saving to use for the bivariate SRMs
@@ -313,10 +508,10 @@ ANOVA_priors <- function(rr.data, case.data,
   
   corMat_d <- cov2cor(covMat_d)
   
-  for (c in 2:length(case.covs)) { # insert correlations between case-level covariates
-    for (cc in 1:(c-1)) {
-      corMat_c[case.covs[c], case.covs[cc]] <- corMat_c[case.covs[cc], case.covs[c]] <-
-        parCor(combi_dat[,case.covs[c]], combi_dat[,case.covs[cc]], combi_dat$group.id)$par.cor
+  for (cc in 2:length(case.covs)) { # insert correlations between case-level covariates
+    for (bb in 1:(cc-1)) {
+      corMat_c[case.covs[cc], case.covs[bb]] <- corMat_c[case.covs[bb], case.covs[cc]] <-
+        parCor(combi_dat[,case.covs[cc]], combi_dat[,case.covs[bb]], combi_dat$group.id)$par.cor
     }
   }
   
@@ -366,17 +561,23 @@ ANOVA_priors <- function(rr.data, case.data,
     }
   }
   
-  priors
+  return(priors)
 } #TODO check again for bugs
 
-# ANOVA_priors(rr.data = iq.data, case.data = covariate.data, 
-#              IDout = "ego", IDin = "alter", IDgroup = "group",
-#              default_prior = default_prior)
+#FIXME---location parameter for t priors of case-level covariates---use SD of the variable in sample?
+
+library(lavaan.srm)
+dat <- genGroups(1, 5, 3)
+ANOVA_priors(rr.data = dat$rr.dat, case.data = dat$covariate.dat,
+             IDout = "ego", IDin = "alter", IDgroup = "group",
+             default_prior = srm_priors(data = dat$rr.dat[,4:6], case_data = dat$covariate.dat[,3:8]))
 
 
 #----
 
 # function 6: set customised priors for MCMC stage----
+# set_priors <- function(rr.data, case.data, rr.bars, case.covs, 
+#                        IDout, IDin, IDgroup, priorType, targetCorr, precision)
 
 #----
 
