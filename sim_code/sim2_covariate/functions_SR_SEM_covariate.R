@@ -12,6 +12,16 @@
 setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code/sim2_covariate/")
 # getwd()
 
+dat <- genGroups(1, 5, 3)
+rr.data = dat$rr.dat
+case.data = dat$covariate.dat
+rr.vars = c("peer.iq1","peer.iq5","peer.iq6")
+case.covs = c("self.iq1", "self.iq5", "self.iq6",
+              "grade1", "grade2", "grade4")
+IDout = "ego"; IDin = "alter"; IDgroup = "group"
+precision = 0.1
+
+
 #################################
 # FUNCTIONS FOR SIMULATIONS ----
 #################################
@@ -566,22 +576,81 @@ ANOVA_priors <- function(rr.data, case.data,
 
 #FIXME---location parameter for t priors of case-level covariates---use SD of the variable in sample?
 
-library(lavaan.srm)
-dat <- genGroups(1, 5, 3)
-ANOVA_priors(rr.data = dat$rr.dat, case.data = dat$covariate.dat,
-             IDout = "ego", IDin = "alter", IDgroup = "group",
-             default_prior = srm_priors(data = dat$rr.dat[,4:6], case_data = dat$covariate.dat[,3:8]))
+# library(lavaan.srm)
+# dat <- genGroups(1, 5, 3)
+# ANOVA_priors(rr.data = dat$rr.dat, case.data = dat$covariate.dat,
+#              IDout = "ego", IDin = "alter", IDgroup = "group",
+#              default_prior = srm_priors(data = dat$rr.dat[,4:6], case_data = dat$covariate.dat[,3:8]))
 
 
 #----
 
 # function 6: set customised priors for MCMC stage----
-# set_priors <- function(rr.data, case.data, rr.bars, case.covs, 
-#                        IDout, IDin, IDgroup, priorType, targetCorr, precision)
+set_priors <- function(rr.data, case.data, rr.vars, case.covs,
+                       IDout, IDin, IDgroup, priorType, precision) {
+  prior_env <- new.env()
+  prior_env$default_prior <- srm_priors(data = rr.data[rr.vars], 
+                                        case_data = case.data[case.covs])
+  prior_env$popValues <- getSigma()
+  prior_env$pop.corMat <- list(pop.cor_c = get("popValues", envir = prior_env)$pop.cor_c,
+                               pop.cor_d = get("popValues", envir = prior_env)$pop.cor_d)
+  prior_env$pop.SDvec <- list(pop.SD_c = get("popValues", envir = prior_env)$pop.SD_c, 
+                              pop.SD_d = get("popValues", envir = prior_env)$pop.SD_d)
+  
+  if (priorType == "default") {
+    srmPriors <- get("default_prior", prior_env)
+  } else if (priorType == "prophetic") {
+    srmPriors <- prophetic_priors(pop.corMat = get("pop.corMat", envir = prior_env),
+                                  pop.SDvec = get("pop.SDvec", envir = prior_env),
+                                  rr.vars = rr.vars, case.covs = case.covs, 
+                                  precision = precision,
+                                  default_prior = get("default_prior", prior_env))
+  } else if (priorType == "ANOVA") {
+    srmPriors <- ANOVA_priors(rr.data = rr.data, case.data = case.data, 
+                              rr.vars = rr.vars, case.covs = case.covs,
+                              IDout = IDout, IDin = IDin, IDgroup = IDgroup, 
+                              precision = precision, 
+                              default_prior = get("default_prior", prior_env))
+  } else {
+    stop("specify valid priorType (default, prophetic or ANOVA)")
+  }
+  return(srmPriors)
+}
+
+# set_priors(rr.data = rr.data, case.data = case.data, 
+#            rr.vars = c("peer.iq1","peer.iq5","peer.iq6"), 
+#            case.covs = c("self.iq1", "self.iq5", "self.iq6",
+#                          "grade1", "grade2", "grade4"), 
+#            IDout = "ego", IDin = "alter", IDgroup = "group", 
+#            priorType = "default")
+# set_priors(rr.data = rr.data, case.data = case.data, 
+#            rr.vars = c("peer.iq1","peer.iq5","peer.iq6"), 
+#            case.covs = c("self.iq1", "self.iq5", "self.iq6",
+#                          "grade1", "grade2", "grade4"), 
+#            IDout = "ego", IDin = "alter", IDgroup = "group", 
+#            priorType = "prophetic", precision = 0.1)
+# set_priors(rr.data = rr.data, case.data = case.data, 
+#            rr.vars = c("peer.iq1","peer.iq5","peer.iq6"), 
+#            case.covs = c("self.iq1", "self.iq5", "self.iq6",
+#                          "grade1", "grade2", "grade4"), 
+#            IDout = "ego", IDin = "alter", IDgroup = "group", 
+#            priorType = "ANOVA", precision = 0.1)
+
 
 #----
 
 # function 7: stage 1 of lavaan.srm----
+lavs1 <- function(MCSampID, n, G, rr.vars = c("peer.iq1","peer.iq5","peer.iq6"), 
+                  case.covs = c("self.iq1", "self.iq5", "self.iq6", 
+                                "grade1", "grade2", "grade4"), 
+                  IDout = "ego", IDin = "alter", IDgroup = "group", 
+                  priorType, precision = 0.1, iter = 2000, savefile = F) {
+  library(lavaan.srm)
+  library(rstan)
+  
+  ## rerun based on only covariance estimates again? since those are what we will use for stage2?
+}
+
 #TODO save stage1 files, so that T doesn't have to run them again when trying different
 # methods for test stats, robust ACOV, etc
 #----
@@ -590,7 +659,3 @@ ANOVA_priors(rr.data = dat$rr.dat, case.data = dat$covariate.dat,
 
 #----
 
-## priors: default, ANOVA, prophetic
-### ANOVA priors: the prior locations among the case-level covaraites are easy. just run `cor()`
-### then run a univariate srm for each case-dyad level pair, treating the case-level covariate
-### as self ratings
