@@ -12,14 +12,16 @@
 setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code/sim2_covariate/")
 # getwd()
 
-dat <- genGroups(1, 5, 3)
-rr.data = dat$rr.dat
-case.data = dat$covariate.dat
-rr.vars = c("peer.iq1","peer.iq5","peer.iq6")
-case.covs = c("self.iq1", "self.iq5", "self.iq6",
-              "grade1", "grade2", "grade4")
-IDout = "ego"; IDin = "alter"; IDgroup = "group"
-precision = 0.1
+# MCSampID = 1; n = 5; G = 3
+# dat <- genGroups(1, 5, 3)
+# rr.data = dat$rr.dat
+# case.data = dat$covariate.dat
+# rr.vars = c("peer.iq1","peer.iq5","peer.iq6")
+# case.covs = c("self.iq1", "self.iq5", "self.iq6",
+#               "grade1", "grade2", "grade4")
+# IDout = "ego"; IDin = "alter"; IDgroup = "group"
+# precision = 0.1
+# iter = 10
 
 
 #################################
@@ -141,7 +143,7 @@ getSigma <- function(return_mats = TRUE) {
 #----
 
 # function 1: simulate data for a single group----
-genData <- function(n) {
+genData <- function(n, rr.vars, case.covs, IDout, IDin) {
   popMats <- getSigma()
   
   pop.cov_c <- popMats$pop.cov_c
@@ -155,16 +157,14 @@ genData <- function(n) {
   dat_c <- rmnorm(n = n, mean = pop.mu_c, varcov = pop.cov_c)
   rr.dat_d <- rmnorm(n = (n*(n-1))/2, mean = pop.mu_d, varcov = pop.cov_d)
   
-  covariate.dat_c <- as.data.frame(cbind(ID = 1:n, dat_c[, c("self.iq1", "self.iq5", "self.iq6",
-                               "grade1", "grade2", "grade4")]))
+  covariate.dat_c <- as.data.frame(cbind(ID = 1:n, dat_c[, case.covs]))
   
-  rr.dat_c <- dat_c[, paste0(rep(c("peer.iq1","peer.iq5","peer.iq6"), 
+  rr.dat_c <- dat_c[, paste0(rep(rr.vars, 
                                  each = 2), c("_out", "_in"))]
   
   Y.dat <- NULL
-  rr.names <- c("peer.iq1","peer.iq5","peer.iq6")
   
-  for (rr in rr.names) {
+  for (rr in rr.vars) {
     ego.name <- paste0(rr, "_out")
     ego.mat <- matrix(rr.dat_c[,ego.name], nrow = n, ncol = n, byrow = F) # each row = new ego
     diag(ego.mat) <- NA
@@ -186,10 +186,10 @@ genData <- function(n) {
     
     # convert to long format
     tempY.low <- cbind(lt.indices, Y.adj[lt.indices])
-    colnames(tempY.low) <- c("ego", "alter", rr)
+    colnames(tempY.low) <- c(IDout, IDin, rr) #FIXME can have IDout, IDin
     
     tempY.up <- cbind(lt.indices[,2:1], Y.adj[lt.indices[,2:1]])
-    colnames(tempY.up) <- c("ego", "alter", rr)
+    colnames(tempY.up) <- c(IDout, IDin, rr)
     
     tempY <- rbind(tempY.low, tempY.up)
   
@@ -202,7 +202,10 @@ genData <- function(n) {
   return(list(rr.dat = Y.dat, covariate.dat = covariate.dat_c))
 }
 
-# genData(n = 5)
+# genData(n = 5, rr.vars = c("peer.iq1","peer.iq5","peer.iq6"),
+#         case.covs = c("self.iq1", "self.iq5", "self.iq6", 
+#                       "grade1", "grade2", "grade4"),
+#         IDout = "ego", IDin = "alter")
 
 #----
 
@@ -587,7 +590,8 @@ ANOVA_priors <- function(rr.data, case.data,
 
 # function 6: set customised priors for MCMC stage----
 set_priors <- function(rr.data, case.data, rr.vars, case.covs,
-                       IDout, IDin, IDgroup, priorType, precision) {
+                       IDout = NULL, IDin = NULL, IDgroup = NULL, priorType, 
+                       precision = NULL) {
   prior_env <- new.env()
   prior_env$default_prior <- srm_priors(data = rr.data[rr.vars], 
                                         case_data = case.data[case.covs])
@@ -617,23 +621,21 @@ set_priors <- function(rr.data, case.data, rr.vars, case.covs,
   return(srmPriors)
 }
 
-# set_priors(rr.data = rr.data, case.data = case.data, 
-#            rr.vars = c("peer.iq1","peer.iq5","peer.iq6"), 
+# set_priors(rr.data = rr.data, case.data = case.data,
+#            rr.vars = c("peer.iq1","peer.iq5","peer.iq6"),
 #            case.covs = c("self.iq1", "self.iq5", "self.iq6",
-#                          "grade1", "grade2", "grade4"), 
-#            IDout = "ego", IDin = "alter", IDgroup = "group", 
+#                          "grade1", "grade2", "grade4"),
 #            priorType = "default")
-# set_priors(rr.data = rr.data, case.data = case.data, 
-#            rr.vars = c("peer.iq1","peer.iq5","peer.iq6"), 
+# set_priors(rr.data = rr.data, case.data = case.data,
+#            rr.vars = c("peer.iq1","peer.iq5","peer.iq6"),
 #            case.covs = c("self.iq1", "self.iq5", "self.iq6",
-#                          "grade1", "grade2", "grade4"), 
-#            IDout = "ego", IDin = "alter", IDgroup = "group", 
+#                          "grade1", "grade2", "grade4"),
 #            priorType = "prophetic", precision = 0.1)
-# set_priors(rr.data = rr.data, case.data = case.data, 
-#            rr.vars = c("peer.iq1","peer.iq5","peer.iq6"), 
+# set_priors(rr.data = rr.data, case.data = case.data,
+#            rr.vars = c("peer.iq1","peer.iq5","peer.iq6"),
 #            case.covs = c("self.iq1", "self.iq5", "self.iq6",
-#                          "grade1", "grade2", "grade4"), 
-#            IDout = "ego", IDin = "alter", IDgroup = "group", 
+#                          "grade1", "grade2", "grade4"),
+#            IDout = "ego", IDin = "alter", IDgroup = "group",
 #            priorType = "ANOVA", precision = 0.1)
 
 
@@ -646,13 +648,143 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("peer.iq1","peer.iq5","peer.iq6"),
                   IDout = "ego", IDin = "alter", IDgroup = "group", 
                   priorType, precision = 0.1, iter = 2000, savefile = F) {
   library(lavaan.srm)
-  library(rstan)
+  library(coda) # for gelman.diag()
+  library(rstan) # for As.mcmc.list()
   
-  ## rerun based on only covariance estimates again? since those are what we will use for stage2?
+  s1_env <- new.env()
+  s1_env$dat <- genGroups(MCSampID = MCSampID, n = n, G = G)
+  s1_env$rr.data <- get("dat", envir = s1_env)$rr.dat
+  s1_env$covariate.data <- get("dat", envir = s1_env)$covariate.dat
+  s1_env$MCMC_pars <- c(paste0("pSigma[", outer(1:12, 1:12, FUN = paste, sep = ",")[upper.tri(diag(12), diag = TRUE)], "]"), # case level
+                       paste0("dSigma[", c(paste0(rep(1, each = 6), ",", 1:6), # relvar1; dyadcov11; intra/inter12; intra/inter13
+                                           paste0(rep(3, each = 4), ",", 3:6), #relvar2; dyadcov22; intra/inter23
+                                           paste0(rep(5, each = 2), ",", 5:6)), "]")) # relvar3; dyadcov33
+  
+  t0 <- Sys.time()
+  
+  if (priorType == "default") {
+    
+    s1_priors <- set_priors(rr.data = get("rr.data", envir = s1_env),
+                            case.data = get("covariate.data", envir = s1_env),
+                            rr.vars = rr.vars, case.covs = case.covs,
+                            priorType = priorType)
+    s1ests <- mvsrm(data = get("rr.data", envir = s1_env),
+                    rr.vars = rr.vars, IDout = IDout, IDin = IDin, 
+                    IDgroup = IDgroup, fixed.groups = T, 
+                    case_data = get("covariate.data", envir = s1_env), init_r = 0.5, 
+                    iter = iter, priors = s1_priors, seed = 1512, verbose = F)
+    
+    s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
+                                 probs = NULL)$summary)[get("MCMC_pars", envir = s1_env),]
+    
+    if (any(s1long$n_eff < 100, na.rm = TRUE) | any(s1long$Rhat > 1.05, na.rm = TRUE)) {
+      iter = iter*2
+      
+      s1ests <- mvsrm(data = get("rr.data", envir = s1_env),
+                      rr.vars = rr.vars, IDout = IDout, IDin = IDin, 
+                      IDgroup = IDgroup, fixed.groups = T, 
+                      case_data = get("covariate.data", envir = s1_env), init_r = 0.5, 
+                      iter = iter, priors = s1_priors, seed = 1512, verbose = F)
+      
+      s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
+                                   probs = NULL)$summary)[get("MCMC_pars", envir = s1_env),]
+      
+    }
+  } else if (priorType == "prophetic") {
+    
+    s1_priors <- set_priors(rr.data = get("rr.data", envir = s1_env),
+                            case.data = get("covariate.data", envir = s1_env),
+                            rr.vars = rr.vars, case.covs = case.covs,
+                            priorType = priorType, precision = precision)
+    s1ests <- mvsrm(data = get("rr.data", envir = s1_env),
+                    rr.vars = rr.vars, IDout = IDout, IDin = IDin, 
+                    IDgroup = IDgroup, fixed.groups = T, 
+                    case_data = get("covariate.data", envir = s1_env), init_r = 0.5, 
+                    iter = iter, priors = s1_priors, seed = 1512, verbose = F)
+    
+    s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
+                                 probs = NULL)$summary)[get("MCMC_pars", envir = s1_env),]
+    
+    if (any(s1long$n_eff < 100, na.rm = TRUE) | any(s1long$Rhat > 1.05, na.rm = TRUE)) {
+      iter = iter*2
+      
+      s1ests <- mvsrm(data = get("rr.data", envir = s1_env),
+                      rr.vars = rr.vars, IDout = IDout, IDin = IDin, 
+                      IDgroup = IDgroup, fixed.groups = T, 
+                      case_data = get("covariate.data", envir = s1_env), init_r = 0.5, 
+                      iter = iter, priors = s1_priors, seed = 1512, verbose = F)
+      
+      s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
+                                   probs = NULL)$summary)[get("MCMC_pars", envir = s1_env),]
+      
+    }
+    
+  } else if (priorType == "ANOVA") {
+    
+    s1_priors <- set_priors(rr.data = get("rr.data", envir = s1_env),
+                            case.data = get("covariate.data", envir = s1_env),
+                            rr.vars = rr.vars, case.covs = case.covs,
+                            IDout = IDout, IDin = IDin, IDgroup = IDgroup,
+                            priorType = priorType, precision = precision)
+    s1ests <- mvsrm(data = get("rr.data", envir = s1_env),
+                    rr.vars = rr.vars, IDout = IDout, IDin = IDin, 
+                    IDgroup = IDgroup, fixed.groups = T, 
+                    case_data = get("covariate.data", envir = s1_env), init_r = 0.5, 
+                    iter = iter, priors = s1_priors, seed = 1512, verbose = F)
+    
+    s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
+                                 probs = NULL)$summary)[get("MCMC_pars", envir = s1_env),]
+    
+    if (any(s1long$n_eff < 100, na.rm = TRUE) | any(s1long$Rhat > 1.05, na.rm = TRUE)) {
+      iter = iter*2
+      
+      s1ests <- mvsrm(data = get("rr.data", envir = s1_env),
+                      rr.vars = rr.vars, IDout = IDout, IDin = IDin, 
+                      IDgroup = IDgroup, fixed.groups = T, 
+                      case_data = get("covariate.data", envir = s1_env), init_r = 0.5, 
+                      iter = iter, priors = s1_priors, seed = 1512, verbose = F)
+      
+      s1long <- data.frame(summary(s1ests, as.stanfit = TRUE, 
+                                   probs = NULL)$summary)[get("MCMC_pars", envir = s1_env),]
+      
+    }
+  }
+  t1 <- Sys.time()
+  
+  # create outlier flag 
+  attr(s1ests, "mPSRF") <- gelman.diag(As.mcmc.list(s1ests, pars = get("MCMC_pars", envir = s1_env)), 
+                                       autoburnin = FALSE)$mpsrf
+  if (any(s1long$n_eff < 100, na.rm = TRUE) | any(s1long$Rhat > 1.05, na.rm = TRUE)) {
+    attr(s1ests, "Reff_outlier") <- TRUE # if ANY Rhats or effective sample sizes indicate non-convergence
+  } else {
+    attr(s1ests, "Reff_outlier") <- FALSE
+  }
+  
+  if (attr(s1ests, "mPSRF") > 1.05) {
+    attr(s1ests, "mPSRF_outlier") <- TRUE # if the overall mPSRF indicates non-convergence
+  } else {
+    attr(s1ests, "mPSRF_outlier") <- FALSE
+  }
+  
+  # assign simulation conditions as attributes to s1ests to use for stage2
+  attr(s1ests, "MCSampID") <- MCSampID
+  attr(s1ests, "n") <- n
+  attr(s1ests, "G") <- G
+  attr(s1ests, "priorType") <- priorType
+  attr(s1ests, "precision") <- ifelse(priorType == "default", "NA", precision)
+  attr(s1ests, "iter") <- iter
+  attr(s1ests, "RunTime") <- difftime(t1, t0, units = "mins")
+  
+  if (savefile) saveRDS(s1ests, paste0("s1covariate_ID", MCSampID, ".nG", G, ".n", n, "_", 
+                                       priorType,  "_", ifelse(priorType == "default", "NA", precision), ".rds"))
+  return(s1ests)
+  
 }
 
-#TODO save stage1 files, so that T doesn't have to run them again when trying different
-# methods for test stats, robust ACOV, etc
+# foo <- lavs1(MCSampID = 1, n = 5, G = 3, priorType = "default", precision = NA, iter = 100)
+# bar <- lavs1(MCSampID = 1, n = 5, G = 3, priorType = "prophetic", precision = 0.1, iter = 100)
+# baz <- lavs1(MCSampID = 1, n = 5, G = 3, priorType = "ANOVA", precision = 0.1, iter = 100)
+
 #----
 
 # function 8: stage 2 of lavaan.srm----
