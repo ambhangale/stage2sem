@@ -274,15 +274,6 @@ minLoss <- function(par = c(1.5, 1.5), targetCorr, accept.dev) {
 # function 4: prophetic priors
 prophetic_priors <- function(pop.corMat, pop.SDvec, rr.vars, case.covs, 
                              precision, default_prior) {
-  ###  JUST WHILE I CONSTRUCT THE FUNCTION
-  # dat <- genGroups(1, 5, 3)
-  # default_prior <- srm_priors(data = dat$rr.dat[,4:6], case_data = dat$covariate.dat[,3:8])
-  # popVals <- getSigma()
-  # pop.corMat = list(pop.cor_c = popVals$pop.cor_c, pop.cor_d = popVals$pop.cor_d)
-  # pop.SDvec = list(pop.SD_c = popVals$pop.SD_c, pop.SD_d = popVals$pop.SD_d)
-  # rr.vars = c("peer.iq1","peer.iq5","peer.iq6")
-  # case.covs = c("self.iq1", "self.iq5", "self.iq6", "grade1", "grade2", "grade4")
-  # precision = 0.1
   
   priors <- default_prior
   
@@ -290,9 +281,9 @@ prophetic_priors <- function(pop.corMat, pop.SDvec, rr.vars, case.covs,
   pop.SD_c <- pop.SDvec$pop.SD_c
   pop.SD_d <- pop.SDvec$pop.SD_d
   
-  priors$rr_in_t$m <- pop.SD_c[paste0(c("peer.iq1","peer.iq5","peer.iq6"), "_in")]
-  priors$rr_out_t$m <- pop.SD_c[paste0(c("peer.iq1","peer.iq5","peer.iq6"), "_out")]
-  priors$rr_rel_t$m <- pop.SD_d[paste0(c("peer.iq1","peer.iq5","peer.iq6"), "_ij")]
+  priors$rr_in_t$m <- pop.SD_c[paste0(rr.vars, "_in")]
+  priors$rr_out_t$m <- pop.SD_c[paste0(rr.vars, "_out")]
+  priors$rr_rel_t$m <- pop.SD_d[paste0(rr.vars, "_ij")]
   priors$case_cov_t$m <- pop.SD_c[case.covs]
   
   priors$rr_in_t$sd <- priors$rr_out_t$sd <- priors$rr_rel_t$sd <- rep(precision, length(rr.vars))
@@ -368,7 +359,7 @@ prophetic_priors <- function(pop.corMat, pop.SDvec, rr.vars, case.covs,
   ## end: dyad-level hyperpars----
   
   return(priors)
-} #TODO check beta hyperpars assignment in case and dyad level---i'm not completely confident about this
+}
 
 # library(lavaan.srm)
 # dat <- genGroups(1, 5, 3)
@@ -383,12 +374,8 @@ prophetic_priors <- function(pop.corMat, pop.SDvec, rr.vars, case.covs,
 #----
 
 # function 5: ANOVA-based priors----
-ANOVA_priors <- function(rr.data, case.data, 
-                         rr.vars = c("peer.iq1","peer.iq5","peer.iq6"),
-                         case.covs = c("self.iq1", "self.iq5", "self.iq6",
-                                       "grade1", "grade2", "grade4"),
-                         IDout, IDin, IDgroup, 
-                         precision = 0.1, default_prior) {
+ANOVA_priors <- function(rr.data, case.data, rr.vars, case.covs, IDout, IDin, 
+                         IDgroup, precision = 0.1, default_prior) {
   
   names(case.data) <- c("group.id", "id", case.covs) # to make compatible with TripleR output
   
@@ -431,7 +418,8 @@ ANOVA_priors <- function(rr.data, case.data,
       weighted.mean(uv.gEsts[uv.gEsts$type == type,]$estimate, w = n-1)
     })
     
-    # construct covariance matrices (to compute correlation matrices)
+    # construct correlation matrix at case level 
+    # and covariance matrix at dyad level (to compute correlation matrix)
     corMat_c[paste0(rr.vars[rr], "_out"), paste0(rr.vars[rr], "_in")] <- corMat_c[paste0(rr.vars[rr], "_in"), paste0(rr.vars[rr], "_out")] <- 
       uv.cov["actor-partner covariance"] / sqrt(uv.var["actor variance"]*uv.var["partner variance"])
     
@@ -457,11 +445,12 @@ ANOVA_priors <- function(rr.data, case.data,
         parCor(combi_dat[,case.covs[cc]], combi_dat[,paste0(rr.vars[rr], "_out")], combi_dat$group.id)$par.cor # correlation with outgoing effects
       corMat_c[paste0(rr.vars[rr], "_in"), case.covs[cc]] <- corMat_c[case.covs[cc], paste0(rr.vars[rr], "_in")] <- 
         parCor(combi_dat[,case.covs[cc]], combi_dat[,paste0(rr.vars[rr], "_in")], combi_dat$group.id)$par.cor # correlation with incoming effects
-      #TODO change this to IDgroup --- make sure group IDs are "group.id"
       
-      # SD priors for each covariate
-      priors$case_cov_t[case.covs[cc], "m"] <- sd(case.data[,case.covs[cc]])
-      priors$case_cov_t[case.covs[cc], "sd"] <- precision
+      # # SD priors for each covariate
+      # priors$case_cov_t[case.covs[cc], "m"] <- sd(case.data[,case.covs[cc]])
+      # priors$case_cov_t[case.covs[cc], "sd"] <- precision
+      ## leave the SD priors for each covariate as the default (discussed this with T)
+      
     }
     
     # saving to use for the bivariate SRMs
@@ -518,7 +507,7 @@ ANOVA_priors <- function(rr.data, case.data,
     }
   }
   
-  corMat_d <- cov2cor(covMat_d)
+  corMat_d <- cov2cor(covMat_d) # convert dyad-level covariances to correlations
   
   for (cc in 2:length(case.covs)) { # insert correlations between case-level covariates
     for (bb in 1:(cc-1)) {
@@ -574,15 +563,18 @@ ANOVA_priors <- function(rr.data, case.data,
   }
   
   return(priors)
-} #TODO check again for bugs
+}
 
 #FIXME---location parameter for t priors of case-level covariates---use SD of the variable in sample?
 
-# library(lavaan.srm)
-# dat <- genGroups(1, 5, 3)
-# ANOVA_priors(rr.data = dat$rr.dat, case.data = dat$covariate.dat,
-#              IDout = "ego", IDin = "alter", IDgroup = "group",
-#              default_prior = srm_priors(data = dat$rr.dat[,4:6], case_data = dat$covariate.dat[,3:8]))
+library(lavaan.srm)
+dat <- genGroups(1, 5, 3)
+ANOVA_priors(rr.data = dat$rr.dat, case.data = dat$covariate.dat,
+             rr.vars = c("peer.iq1","peer.iq5","peer.iq6"), 
+             case.covs = c("self.iq1", "self.iq5", "self.iq6", 
+                           "grade1", "grade2", "grade4"),
+             IDout = "ego", IDin = "alter", IDgroup = "group", precision = 0.1,
+             default_prior = srm_priors(data = dat$rr.dat[,4:6], case_data = dat$covariate.dat[,3:8]))
 
 
 #----
