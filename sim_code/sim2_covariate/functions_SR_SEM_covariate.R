@@ -1,5 +1,5 @@
 ## Aditi M. Bhangale
-## Last updated: 4 July 2024
+## Last updated: 5 July 2024
 
 # "Comparing maximum likelihood to two-stage estimation for structural equation 
 # models of social-network data"
@@ -377,7 +377,11 @@ prophetic_priors <- function(pop.corMat, pop.SDvec, rr.vars, case.covs,
 ANOVA_priors <- function(rr.data, case.data, rr.vars, case.covs, IDout, IDin, 
                          IDgroup, precision = 0.1, default_prior) {
   
-  names(case.data) <- c("group.id", "id", case.covs) # to make compatible with TripleR output
+  # to make compatible with TripleR output
+  names(case.data)[names(case.data) == "group"] <- "group.id"
+  names(case.data)[names(case.data) == "ID"] <- "id"
+  
+  # names(case.data) <- c("group.id", "id", case.covs) # to make compatible with TripleR output
   
   priors <- default_prior
   library(TripleR)
@@ -565,16 +569,14 @@ ANOVA_priors <- function(rr.data, case.data, rr.vars, case.covs, IDout, IDin,
   return(priors)
 }
 
-#FIXME---location parameter for t priors of case-level covariates---use SD of the variable in sample?
-
-library(lavaan.srm)
-dat <- genGroups(1, 5, 3)
-ANOVA_priors(rr.data = dat$rr.dat, case.data = dat$covariate.dat,
-             rr.vars = c("peer.iq1","peer.iq5","peer.iq6"), 
-             case.covs = c("self.iq1", "self.iq5", "self.iq6", 
-                           "grade1", "grade2", "grade4"),
-             IDout = "ego", IDin = "alter", IDgroup = "group", precision = 0.1,
-             default_prior = srm_priors(data = dat$rr.dat[,4:6], case_data = dat$covariate.dat[,3:8]))
+# library(lavaan.srm)
+# dat <- genGroups(1, 5, 3)
+# ANOVA_priors(rr.data = dat$rr.dat, case.data = dat$covariate.dat,
+#              rr.vars = c("peer.iq1","peer.iq5","peer.iq6"),
+#              case.covs = c("self.iq1", "self.iq5", "self.iq6",
+#                            "grade1", "grade2", "grade4"),
+#              IDout = "ego", IDin = "alter", IDgroup = "group", precision = 0.1,
+#              default_prior = srm_priors(data = dat$rr.dat[,4:6], case_data = dat$covariate.dat[,3:8]))
 
 
 #----
