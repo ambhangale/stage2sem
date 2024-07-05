@@ -143,7 +143,7 @@ getSigma <- function(return_mats = TRUE) {
 #----
 
 # function 1: simulate data for a single group----
-genData <- function(n, rr.vars, case.covs, IDout, IDin) {
+genData <- function(n) {
   popMats <- getSigma()
   
   pop.cov_c <- popMats$pop.cov_c
@@ -157,14 +157,16 @@ genData <- function(n, rr.vars, case.covs, IDout, IDin) {
   dat_c <- rmnorm(n = n, mean = pop.mu_c, varcov = pop.cov_c)
   rr.dat_d <- rmnorm(n = (n*(n-1))/2, mean = pop.mu_d, varcov = pop.cov_d)
   
-  covariate.dat_c <- as.data.frame(cbind(ID = 1:n, dat_c[, case.covs]))
+  covariate.dat_c <- as.data.frame(cbind(ID = 1:n, dat_c[, c("self.iq1", "self.iq5", "self.iq6",
+                               "grade1", "grade2", "grade4")]))
   
-  rr.dat_c <- dat_c[, paste0(rep(rr.vars, 
+  rr.dat_c <- dat_c[, paste0(rep(c("peer.iq1","peer.iq5","peer.iq6"), 
                                  each = 2), c("_out", "_in"))]
   
   Y.dat <- NULL
+  rr.names <- c("peer.iq1","peer.iq5","peer.iq6") 
   
-  for (rr in rr.vars) {
+  for (rr in rr.names) {
     ego.name <- paste0(rr, "_out")
     ego.mat <- matrix(rr.dat_c[,ego.name], nrow = n, ncol = n, byrow = F) # each row = new ego
     diag(ego.mat) <- NA
@@ -186,10 +188,10 @@ genData <- function(n, rr.vars, case.covs, IDout, IDin) {
     
     # convert to long format
     tempY.low <- cbind(lt.indices, Y.adj[lt.indices])
-    colnames(tempY.low) <- c(IDout, IDin, rr) #FIXME can have IDout, IDin
+    colnames(tempY.low) <- c("ego", "alter", rr)
     
     tempY.up <- cbind(lt.indices[,2:1], Y.adj[lt.indices[,2:1]])
-    colnames(tempY.up) <- c(IDout, IDin, rr)
+    colnames(tempY.up) <- c("ego", "alter", rr)
     
     tempY <- rbind(tempY.low, tempY.up)
   
@@ -202,10 +204,7 @@ genData <- function(n, rr.vars, case.covs, IDout, IDin) {
   return(list(rr.dat = Y.dat, covariate.dat = covariate.dat_c))
 }
 
-# genData(n = 5, rr.vars = c("peer.iq1","peer.iq5","peer.iq6"),
-#         case.covs = c("self.iq1", "self.iq5", "self.iq6", 
-#                       "grade1", "grade2", "grade4"),
-#         IDout = "ego", IDin = "alter")
+# genData(n = 5)
 
 #----
 
