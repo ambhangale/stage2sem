@@ -799,3 +799,112 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("peer.iq1","peer.iq5","peer.iq6"),
 
 #----
 
+# function 9: create runsim files----
+makeRunsim <- function(nSamps, n, G, priorType, precision = NULL, sim) {
+  runsimfile <- paste0('## Aditi M. Bhangale
+## Last updated:', Sys.Date(), 
+                       
+'\n# Comparing maximum likelihood to two-stage estimation for structural equation 
+# models of social-network data
+
+# covariate simulation
+
+# runsim_s1covariate_',priorType, ifelse(!is.null(precision), paste0("_", precision), ""), '_n', n, '_G', G, '_',sim,'
+
+source("functions_SR_SEM_covariate.R")
+
+# specify conditions\n',
+                       
+                       priorType,'_grid <- expand.grid(MCSampID = 1:', nSamps, ', n = ', n, ', G = ', G, ', priorType = "', 
+                       priorType, '",',
+                       ifelse(!is.null(precision), paste0('precision = ', precision), 
+                              paste0('precision = NA')), ',
+                              stringsAsFactors = F)\n',
+                       
+                       priorType,'_grid$row_num <- 1:nrow(', priorType,'_grid)
+
+# prepare parallel processing\n
+library(doSNOW)
+
+nClus <- 124
+cl <- makeCluster(nClus)
+registerDoSNOW(cl)
+
+# run simulation\n',
+                       
+                       paste0('s1Result <- foreach(row_num = 1:nrow(',priorType,'_grid),
+                    .packages = c("mnormt", "parallel", "portableParallelSeeds",
+                    "lavaan.srm", "coda",
+                    "modeest", "HDInterval", "rstan")) %dopar% {
+                                    
+out <- try(lavs1(MCSampID = ',priorType,'_grid[row_num, ]$MCSampID, 
+                    n = ',priorType,'_grid[row_num, ]$n, G = ',priorType,'_grid[row_num, ]$G,
+                    priorType = ',priorType,'_grid[row_num, ]$priorType, 
+                    precision = ',priorType,'_grid[row_num, ]$precision), silent = T)
+if(inherits(out, "try-error")) out <- NULL
+                                    
+return(out)
+  }
+         
+# close cluster\n
+stopCluster(cl)
+         
+saveRDS(s1Result, paste0("results_s1covariate_', priorType, 
+                              ifelse(!is.null(precision), paste0("_", precision), ""), 
+                              '_n', n, '_G', G, '_', sim,'_", Sys.Date(),".rds"))
+         
+         ')
+  )
+  
+  cat(runsimfile, file = paste0("runsim_s1covariate_", priorType, ifelse(!is.null(precision), paste0("_", precision), ""), 
+                                "_n", n, "_G", G, "_", sim, ".R"))
+  invisible(NULL)
+}
+
+# makeRunsim(nSamps = 1, n = 5, G = 3, priorType = "prophetic", precision = 0.1, sim = "sim2")
+# makeRunsim(nSamps = 5, n = 5, G = 3, priorType = "ANOVA", precision = 0.1, sim = "sim2")
+# makeRunsim(nSamps = 5, n = 5, G = 3, priorType = "default", sim = "sim2")
+
+#----
+
+# function 10: create shell files----
+makeShSnellius <- function(n, G, priorType, precision = NULL, sim, wallTime) {
+  shell <- paste0('#!/bin/bash
+
+#SBATCH -J ', paste0(priorType, ifelse(!is.null(precision), paste0("_", precision), ""), "_n", n, "_G", G, "_", sim),'
+#SBATCH -e .', paste0(priorType, ifelse(!is.null(precision), paste0("_", precision), ""), "_n", n, "_G", G, "_", sim),'.SERR
+#SBATCH -o .', paste0(priorType, ifelse(!is.null(precision), paste0("_", precision), ""), "_n", n, "_G", G, "_", sim),'.SOUT
+#SBATCH -N 1
+#SBATCH -n 128
+#SBATCH -t ', wallTime,'
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=aditibhangale@gmail.com
+
+cd "$TMPDIR"
+
+module load 2023
+module load R/4.3.2-gfbf-2023a
+export MKL_NUM_THREADS=1
+
+export R_LIBS=$HOME/rpackages:$R_LIBS
+
+cp $HOME/SR-SEM/stage2sem/functions_SR_SEM_covariate.R "$TMPDIR"
+cp $HOME/SR-SEM/stage2sem/', paste0("runsim_s1covariate_", priorType, ifelse(!is.null(precision), paste0("_", precision), ""), 
+                                    "_n", n, "_G", G, "_", sim, ".R"),' "$TMPDIR"
+
+Rscript --vanilla ', paste0("runsim_s1covariate_", priorType, ifelse(!is.null(precision), paste0("_", precision), ""), 
+                            "_n", n, "_G", G, "_", sim, ".R"),'
+
+cp "$TMPDIR"/*.rds $HOME/SR-SEM/stage2sem/' 
+                  
+  )
+  cat(shell, file = paste0("shell_s1covariate_", priorType, ifelse(!is.null(precision), paste0("_", precision), ""), 
+                           "_n", n, "_G", G, "_", sim, ".sh"))
+  invisible(NULL)
+}
+
+# makeShSnellius(n = 5, G = 3, priorType = "prophetic", precision = 0.1, 
+#                sim = "sim2", wallTime = "5-00:00:00")
+
+#----
+
