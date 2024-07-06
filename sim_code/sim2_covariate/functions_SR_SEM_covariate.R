@@ -1,5 +1,5 @@
 ## Aditi M. Bhangale
-## Last updated: 5 July 2024
+## Last updated: 6 July 2024
 
 # "Comparing maximum likelihood to two-stage estimation for structural equation 
 # models of social-network data"
@@ -9,7 +9,7 @@
 
 # rm(list = ls())
 
-setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code/sim2_covariate/")
+# setwd("/Users/Aditi_2/Desktop/UvA/SR-SEM_job/stage2sem/sim_code/sim2_covariate/")
 # getwd()
 
 # MCSampID = 1; n = 5; G = 3
@@ -144,10 +144,36 @@ getSigma <- function(return_mats = TRUE) {
       popSD.df_d$par_names <- paste0(popSD.df_d$Var1, "~~", popSD.df_d$Var1)
       names(popSD.df_d)[names(popSD.df_d) == "Freq"] <- "pop.SD"
       popSD.df_d <- popSD.df_d[, c("par_names", "pop.SD")]
+      
+      popsem.names_c <- c('grade4~grade2','grade4~peer.iq6_in','grade2~grade1',
+                          'grade2~peer.iq5_in','grade1~peer.iq1_in',
+                          'peer.iq6_in~peer.iq5_in','peer.iq6_in~grade2',
+                          'peer.iq5_in~peer.iq1_in','peer.iq5_in~self.iq1',
+                          'peer.iq5_in~grade1','self.iq6~self.iq5','self.iq6~peer.iq5_in',
+                          'self.iq5~self.iq1','self.iq5~peer.iq1_in','self.iq5~grade1',
+                          'grade4~~grade4','grade2~~grade2','grade1~~grade1',
+                          'peer.iq6_in~~peer.iq6_in','peer.iq5_in~~peer.iq5_in',
+                          'self.iq6~~self.iq6','self.iq5~~self.iq5','grade4~~self.iq6',
+                          'peer.iq1_in~~peer.iq1_in','peer.iq1_in~~self.iq1',
+                          'self.iq1~~self.iq1')
+      
+      popsem.ests_c <- c(0.405120883710625,0.403981609684353,0.378260262751128,
+                         0.486959275968029,0.696672632598519,0.86641850652361,
+                         0.0438158459260351,0.62232343063585,0.0387921375357394,
+                         0.273939241174995,0.551687603067031,0.303990860771671,
+                         0.438132160259862,0.429938689227192,0.0848295430112434,
+                         0.300669089338049,0.324763370086136,0.450918912821721,
+                         0.0275314576601663,0.0786205514346074,0.451860569400425,
+                         0.440868881402277,0.032534353460116,0.118625139274703,
+                         0.0772761368510366,0.736486364496517)
+      
+      pop.sem_c <- data.frame(par_names = popsem.names_c, 
+                                pop.sem = popsem.ests_c)
     
       return(list(pop.cov = rbind(popcov.df_c, popcov.df_d),
                   pop.cor = rbind(popcov.df_c, popcov.df_d),
-                  pop.SD = rbind(popSD.df_c, popSD.df_d)))
+                  pop.SD = rbind(popSD.df_c, popSD.df_d),
+                  pop.sem = pop.sem_c))
       
       }
 } 
@@ -790,12 +816,154 @@ lavs1 <- function(MCSampID, n, G, rr.vars = c("peer.iq1","peer.iq5","peer.iq6"),
 }
 
 # foo <- lavs1(MCSampID = 1, n = 5, G = 3, priorType = "default", precision = NA, iter = 100)
-# bar <- lavs1(MCSampID = 1, n = 5, G = 3, priorType = "prophetic", precision = 0.1, iter = 100)
+# s1ests_prophetic <- lavs1(MCSampID = 1, n = 15, G = 10, priorType = "prophetic", precision = 0.1, iter = 500)
 # baz <- lavs1(MCSampID = 1, n = 5, G = 3, priorType = "ANOVA", precision = 0.1, iter = 100)
 
 #----
 
 # function 8: stage 2 of lavaan.srm----
+lavs2 <- function(s1ests, savefile = F) {
+  library(lavaan.srm)
+  
+  if (attr(s1ests, "Reff_outlier") && attr(s1ests, "mPSRF_outlier")) {
+    s2result <- NULL
+  } else { 
+  t0 <- Sys.time()  
+  
+  ## stage2
+  mod_covariate <- '# regressions
+    grade4 ~ grade2 + peer.iq6_in
+    grade2 ~ grade1 + peer.iq5_in
+    grade1 ~ peer.iq1_in
+  
+    peer.iq6_in ~ peer.iq5_in + grade2
+    peer.iq5_in ~ peer.iq1_in + self.iq1 + grade1
+
+    self.iq6 ~ self.iq5 + peer.iq5_in
+    self.iq5 ~ self.iq1 + peer.iq1_in + grade1
+  '
+  
+  fit_covariate <- sem.srm(mod_covariate, data = s1ests, component = "case",
+                           posterior.est = "mean", 
+                           test = c("satorra.bentler","scaled.shifted","browne.residual.adf"))
+  
+  #TODO talk to T about this: why does it by default correlate grade4 and self.iq6? i don't get it
+
+  if (lavInspect(fit_covariate, "converged")) {
+    ## save parameter estimates
+    s2ests <- parameterEstimates(fit_covariate)
+    s2ests$par_names <- paste0(s2ests$lhs, s2ests$op, s2ests$rhs)
+    popVals <- getSigma(return_mats = F)$pop.sem 
+    s2ests <- merge(s2ests, popVals, by = "par_names")
+    s2ests$MCSampID <- attr(s1ests, "MCSampID")
+    s2ests$n <- attr(s1ests, "n")
+    s2ests$G <- attr(s1ests, "G")
+    s2ests$condition <- paste0(attr(s1ests, "n"), "-", attr(s1ests, "G"))
+    s2ests$analType <- "2SMLE"
+    s2ests$s1priorType <- paste0("MCMC-", attr(s1ests, "priorType"), "-", attr(s1ests, "precision"))
+    s2ests$s1iter <- attr(s1ests, "iter")
+    s2ests$s1mPSRF <- attr(s1ests, "mPSRF")
+    s2ests$coverage <- s2ests$ci.lower < s2ests$pop & s2ests$pop < s2ests$ci.upper
+    s2ests$bias <- s2ests$est - s2ests$pop
+    s2ests$RB <- s2ests$bias / s2ests$pop
+    s2ests$s1Reff_outlier <- attr(s1ests, "Reff_outlier")
+    s2ests$s1mPSRF_outlier <- attr(s1ests, "mPSRF_outlier")
+    
+    s2ests <- s2ests[, c("MCSampID", "n", "G", "condition", "analType", "s1priorType", 
+                         "s1iter", "s1mPSRF", "s1Reff_outlier", "s1mPSRF_outlier", 
+                         "par_names", "pop.sem", "est", "se", "ci.lower", 
+                         "ci.upper", "coverage", "bias", "RB")] # remove non-redundant columns and reorder
+  
+    ## evaluate model fit
+    standard.LRT_covariate <- lavTestLRT(fit_covariate, method = "standard")
+    standard.stat_covariate <- standard.LRT_covariate$`Chisq diff`[2]
+    df_covariate <- standard.LRT_covariate$`Df diff`[2]
+    standard.p_covariate <- standard.LRT_covariate$`Pr(>Chisq)`[2]
+    
+    adf.LRT_covariate <- lavTestLRT(fit_covariate, type = "browne.residual.adf")
+    adf.stat_covariate <- adf.LRT_covariate$`Chisq diff`[2]
+    adf.p_covariate <- adf.LRT_covariate$`Pr(>Chisq)`[2]
+    
+    sb.LRT_covariate <- lavTestLRT(fit_covariate, test = "satorra.bentler")
+    sb.stat_covariate <- sb.LRT_covariate$`Chisq diff`[2]
+    sb.p_covariate <- sb.LRT_covariate$`Pr(>Chisq)`[2]
+    
+    ss.LRT_covariate <- lavTestLRT(fit_covariate, test = "scaled.shifted")
+    ss.stat_covariate <- ss.LRT_covariate$`Chisq diff`[2]
+    ss.p_covariate <- ss.LRT_covariate$`Pr(>Chisq)`[2]
+    
+    N_covariate <- attr(s1ests, "nobs")["case"] + attr(s1ests, "nobs")["dyad"]
+    yb.corrected.stat_covariate <- adf.stat_covariate / (1 + (adf.stat_covariate/N_covariate))
+    yb.corrected.p_covariate <- pchisq(yb.corrected.stat_covariate, df = df_covariate, lower = F)
+    
+    yb.F.stat_covariate <- ((N_covariate - df_covariate)/(N_covariate * df_covariate))*adf.stat_covariate
+    yb.F.df2_covariate <- N_covariate - df_covariate
+    yb.F.p_covariate <- pf(yb.F.stat_covariate, df1 = df_covariate, df2 = yb.F.df2_covariate, lower.tail = F)
+    
+  } else {
+      s2ests <- NULL
+      
+      standard.stat_covariate <- standard.p_covariate <- adf.stat_covariate <- adf.p_covariate <-
+        sb.stat_covariate <- sb.p_covariate <- ss.stat_covariate <- ss.p_covariate <- 
+        yb.corrected.stat_covariate <- yb.corrected.p_covariate <- yb.F.stat_covariate <- 
+        yb.F.p_covariate <- NULL
+      
+      N_covariate <- attr(s1ests, "nobs")["covariate"]
+      yb.F.df2_covariate <- N_covariate - df_covariate
+    }
+  
+  standard <- c(fitStat.type = "standard", 
+                covariate.stat = ifelse(!is.null(standard.stat_covariate), standard.stat_covariate, "NA"), 
+                covariate.df = df_covariate, 
+                covariate.p = ifelse(!is.null(standard.p_covariate), standard.p_covariate, "NA")) # Standard chi-square test
+  
+  adf <- c(fitStat.type = "browne.residual.adf", 
+           covariate.stat = ifelse(!is.null(adf.stat_covariate), adf.stat_covariate, "NA"), 
+           covariate.df = df_covariate, 
+           covariate.p = ifelse(!is.null(adf.p_covariate), adf.p_covariate, "NA")) # Browne's residual-based ADF
+  
+  sb <- c(fitStat.type = "satorra.bentler.2001", 
+          covariate.stat = ifelse(!is.null(sb.stat_covariate), sb.stat_covariate, "NA"), 
+          covariate.df = df_covariate, 
+          covariate.p = ifelse(!is.null(sb.p_covariate), sb.p_covariate, "NA")) # Satorra and Bentler's corrected statistic
+  
+  ss <- c(fitStat.type = "scaled.shifted", 
+          covariate.stat = ifelse(!is.null(ss.stat_covariate), ss.stat_covariate, "NA"), 
+          covariate.df = df_covariate, 
+          covariate.p = ifelse(!is.null(ss.p_covariate), ss.p_covariate, "NA")) # Scaled-shifted statistic
+  
+  yb.corrected <- c(fitStat.type = "yuan.bentler.corrected.adf", 
+                    covariate.stat = ifelse(!is.null(yb.corrected.stat_covariate), yb.corrected.stat_covariate, "NA"), 
+                    covariate.df = df_covariate, 
+                    covariate.p = ifelse(!is.null(yb.corrected.p_covariate), yb.corrected.p_covariate, "NA")) # Yuan and Bentler's small-sample correction for ADF
+  
+  yb.F <- c(fitStat.type = "yuan.bentler.F",
+            covariate.stat = ifelse(!is.null(yb.F.stat_covariate), yb.F.stat_covariate, "NA"), 
+            covariate.df = paste0(df_covariate, ",", yb.F.df2_covariate), 
+            covariate.p = ifelse(!is.null(yb.F.p_covariate), yb.F.p_covariate, "NA"))
+  
+  s2mod <- data.frame(cbind(MCSampID = attr(s1ests, "MCSampID"),
+                            n = attr(s1ests, "n"),
+                            G = attr(s1ests, "G"),
+                            condition = paste0(attr(s1ests, "n"), "-", attr(s1ests, "G")),
+                            analType = "2SMLE",
+                            s1priorType = paste0("MCMC-", attr(s1ests, "priorType"), "-", attr(s1ests, "precision")),
+                            s1iter = attr(s1ests, "iter"),
+                            s1mPSRF = attr(s1ests, "mPSRF"), rbind(standard, adf, sb, ss, yb.corrected, yb.F)))
+  
+  t1 <- Sys.time()
+  s2ests$RunTime <- difftime(t1, t0, units = "mins")
+  
+  s2result <- list(s2ests = s2ests, s2mod = s2mod)
+  }
+  if (savefile) saveRDS(s2result, file = paste0("s2covariate_ID", attr(s1ests, "MCSampID"),
+                                                ".nG", attr(s1ests, "G"), ".n", 
+                                                attr(s1ests, "n"), "_", attr(s1ests, "priorType"),
+                                                "_", attr(s1ests, "precision"), ".rds")) #TODO check me
+  return(s2result)
+}
+
+# lavs2(s1ests_prophetic)
 
 #----
 
